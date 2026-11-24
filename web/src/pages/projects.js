@@ -339,6 +339,21 @@ function repoRow(repo = { app: '', role: 'other' }) {
     </div>`;
 }
 
+// Opens the edit modal from a page that has not loaded the projects list (Overview).
+export async function editProject(id) {
+  try {
+    const [data, apps] = await Promise.all([api.getProjects(), api.getApplications()]);
+    _projects = data.projects || [];
+    _roles = data.roles || _roles;
+    _appNames = (apps || []).map(a => a.name).sort();
+    _appsByName = Object.fromEntries((apps || []).map(a => [a.name, a]));
+  } catch (e) {
+    toast(e.message, 'error');
+    return;
+  }
+  showProjectModal(id);
+}
+
 export function showProjectModal(id) {
   const project = _projects.find(p => p.id === id) || { name: '', description: '', jira_project_key: '', repos: [] };
   const overlay = document.createElement('div');
@@ -434,7 +449,8 @@ export async function saveProject() {
   }
   closeProjectModal();
   toast(id ? 'Project updated' : 'Project created', 'success');
-  renderProjects();
+  if (location.hash.startsWith('#/projects')) renderProjects();
+  else window.dispatchEvent(new HashChangeEvent('hashchange'));
 }
 
 export async function deleteProject(id) {

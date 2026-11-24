@@ -4902,6 +4902,7 @@ epyon install-workflow</pre>
     cveSnapshot: () => cveSnapshot,
     deleteProject: () => deleteProject,
     discardProjectPartEdit: () => discardProjectPartEdit,
+    editProject: () => editProject,
     openProjectControl: () => openProjectControl,
     removeProjectExternalRow: () => removeProjectExternalRow,
     removeProjectRepoRow: () => removeProjectRepoRow,
@@ -5763,6 +5764,19 @@ epyon install-workflow</pre>
       <button class="btn" type="button" ${act("removeProjectRepoRow", ARG.el)} aria-label="Remove repository">✕</button>
     </div>`;
   }
+  async function editProject(id) {
+    try {
+      const [data, apps] = await Promise.all([api.getProjects(), api.getApplications()]);
+      _projects = data.projects || [];
+      _roles = data.roles || _roles;
+      _appNames = (apps || []).map((a) => a.name).sort();
+      _appsByName = Object.fromEntries((apps || []).map((a) => [a.name, a]));
+    } catch (e) {
+      toast(e.message, "error");
+      return;
+    }
+    showProjectModal(id);
+  }
   function showProjectModal(id) {
     const project = _projects.find((p) => p.id === id) || { name: "", description: "", jira_project_key: "", repos: [] };
     const overlay = document.createElement("div");
@@ -5848,7 +5862,8 @@ epyon install-workflow</pre>
     }
     closeProjectModal();
     toast(id ? "Project updated" : "Project created", "success");
-    renderProjects();
+    if (location.hash.startsWith("#/projects")) renderProjects();
+    else window.dispatchEvent(new HashChangeEvent("hashchange"));
   }
   async function deleteProject(id) {
     const p = _projects.find((x) => x.id === id);
@@ -6805,7 +6820,7 @@ epyon install-workflow</pre>
         return `<div class="section">
         <div class="section-title">
           <span>▣ ${esc(p.name)} <span style="font-size:12px;font-weight:400;color:var(--text-muted)">(${p.repos.length} repositor${p.repos.length === 1 ? "y" : "ies"})</span></span>
-          <button class="btn btn-sm" ${act("navigate", `#/projects/${encodeURIComponent(p.id)}`)}>STIG roll-up →</button>
+          <button class="btn btn-sm" ${act("editProject", p.id)}>Project properties</button>
         </div>
         ${p.description ? `<div style="font-size:13px;color:var(--text-muted);margin-bottom:10px">${esc(p.description)}</div>` : ""}
         <div class="project-card-body">

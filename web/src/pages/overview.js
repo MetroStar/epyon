@@ -160,9 +160,7 @@ export function buildSearchSection() {
         </label>
         <button class="btn btn-primary" type="submit">Search</button>
       </form>
-      <div id="cve-search-heading" class="cve-search-summary" style="font-weight:600" hidden>Vulnerabilities</div>
       <div id="cve-search-results"></div>
-      <div id="sbom-search-heading" class="cve-search-summary" style="font-weight:600" hidden>SBOM packages</div>
       <div id="sbom-search-results"></div>
     </div>`;
 }
@@ -175,10 +173,7 @@ export function searchRun(ev) {
   const wantVuln = scope !== 'sbom';
   const wantSbom = scope === 'all' || scope === 'sbom';
   const field = scope === 'all' ? (/^(CVE|GHSA)-/i.test(q) ? 'id' : 'package') : scope;
-  const both = wantVuln && wantSbom;
   for (const [id, show] of [['cve', wantVuln], ['sbom', wantSbom]]) {
-    const heading = document.getElementById(`${id}-search-heading`);
-    heading.hidden = !both || !show;
     if (!show) {
       document.getElementById(`${id}-search-results`).innerHTML = '';
       if (id === 'cve') _cveSearchSeq++; else _sbomSearchSeq++;

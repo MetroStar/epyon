@@ -274,7 +274,10 @@ export async function renderProjectStig(id) {
 function externalRow(x = { name: '', role: 'other', note: '' }) {
   return `
     <div class="project-external-row" style="display:flex;gap:8px;margin-bottom:8px">
-      <input class="field-input project-external-name" aria-label="Component name" maxlength="80" placeholder="e.g. Keycloak" value="${esc(x.name)}" style="flex:2">
+      <select class="field-input project-external-name" aria-label="Component (scanned application)" style="flex:2">
+        <option value="">Select an application…</option>
+        ${[...new Set([..._appNames, ...(x.name ? [x.name] : [])])].map(n => `<option value="${esc(n)}"${n === x.name ? ' selected' : ''}>${esc(n)}</option>`).join('')}
+      </select>
       <select class="field-input project-external-role" style="flex:1">
         ${_roles.map(r => `<option value="${esc(r)}"${r === x.role ? ' selected' : ''}>${esc(ROLE_LABEL[r] || r)}</option>`).join('')}
       </select>
@@ -329,7 +332,7 @@ export function showProjectModal(id) {
       </div>
       <div style="margin-bottom:14px">
         <label class="field-label">Third-party components (no STIG)</label>
-        <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px">Software you depend on but cannot assess, such as an identity provider or a vendor API. Listed on the project; they never block the roll-up.</div>
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px">Scanned applications you depend on but cannot STIG, such as a vendor service or an identity provider. Listed on the project; they never block the roll-up.</div>
         <div id="project-external-rows">${(project.external || []).map(x => externalRow(x)).join('')}</div>
         <button class="btn" type="button" ${act('addProjectExternalRow')}>+ Add third-party component</button>
       </div>

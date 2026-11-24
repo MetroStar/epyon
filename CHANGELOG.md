@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.82.0] - 2026-11-24
+
+### Added
+
+- Per-control role overrides for the project roll-up: `configuration/stig-policy/project-roles.json` lists which member roles are required for a control (keyed by V-number or APSC-DV id). Other roles show "not required" and are left out of the status; if no repo holds a required role the control is Not Reviewed. A malformed file is ignored with a warning on the roll-up page.
+- STIG edits that a scan confirmed against the code are published to `docs/stig-reviews/` as entries reviewed by the editor (with the justification in the notes), so they lock on later scans and replace the previous entry. Unverified or contradicted edits are not published.
+
 ## [3.81.0] - 2026-11-23
 
 ### Added

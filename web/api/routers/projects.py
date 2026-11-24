@@ -75,5 +75,8 @@ def project_stig_rollup(project_id: str, response: Response):
         sources.append({"app": repo["app"], "role": repo["role"],
                         "scan_id": stig_scan["scan_id"] if stig_scan else None,
                         "timestamp": stig_scan.get("timestamp", "") if stig_scan else None})
+    policy, policy_error = projects_rollup.load_policy(
+        api_main.EPYON_ROOT / "configuration" / "stig-policy" / "project-roles.json")
     return {"project": {"id": project["id"], "name": project["name"]},
-            "components": sources, "stigs": projects_rollup.rollup(components)}
+            "components": sources, "policy_error": policy_error,
+            "stigs": projects_rollup.rollup(components, policy)}

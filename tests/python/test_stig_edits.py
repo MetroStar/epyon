@@ -102,3 +102,30 @@ def test_scan_applies_stored_edit_and_reopens_for_new_release(tmp_path):
     assert "Not verified" in a["verification_note"]
     b = _engine_run(tmp_path / "second", "u-asd-stig-v6r6-manual-xccdf") if (tmp_path / "second").mkdir() is None else None
     assert b["status"] != "Not a Finding" and "release changed" in b["reopened_reason"]
+
+
+def test_confirmed_edit_publishes_as_human_entry_and_replaces_epyon_entry(tmp_path):
+    spec = importlib.util.spec_from_file_location("stig_records_edits", ROOT / "scripts" / "shell" / "stig_records.py")
+    rec = importlib.util.module_from_spec(spec)
+    sys.modules["stig_records_edits"] = rec
+    spec.loader.exec_module(rec)
+    ctrl = {"vuln_id": "APSC-DV-000070", "group_id": "V-1", "rule_id": "SV-1r1", "severity": "high", "title": "t"}
+    prior = {"human_edit": {"status": "Not a Finding", "evidence": "limit in config.ts", "justification": "owned by IdP",
+                            "edited_by": "ana", "edited_at": "2026-11-24T10:00:00+00:00"}}
+    done = edits.apply_outcome(prior, {"status": "Not a Finding", "evidence": "config.ts:12 sets it", "confidence": 90})
+    text = rec.render_entry(ctrl, done, scan_date="2026-11-25", reviewer="Epyon AI", method="m")
+    info = rec.parse_entry(text)
+    assert info["reviewer"] == "ana" and info["reviewed"] == "2026-11-24" and rec.is_human_reviewer(info["reviewer"])
+    assert "limit in config.ts" in text and "Justification: owned by IdP" in text
+
+    unverified = dict(done, verification_note="Not verified against the repository: no AI key configured.")
+    assert "Epyon AI" in rec.render_entry(ctrl, unverified, scan_date="2026-11-25", reviewer="Epyon AI", method="m")
+
+    repo, scan = tmp_path / "repo", tmp_path / "scan" / "stig-reviews-x"
+    scan.mkdir(parents=True)
+    (repo / "docs" / "stig-reviews").mkdir(parents=True)
+    old = text.replace("ana", "bob").replace("2026-11-24", "2026-10-01").replace("Edited in Epyon and confirmed", "Reviewed")
+    (repo / "docs" / "stig-reviews" / "v-1.md").write_text(old)
+    (scan / "v-1.md").write_text(text)
+    rec.publish_records(tmp_path / "scan", repo)
+    assert "by ana" in (repo / "docs" / "stig-reviews" / "v-1.md").read_text()

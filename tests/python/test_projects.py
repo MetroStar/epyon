@@ -115,3 +115,27 @@ def test_rollup_endpoint_without_scans_and_unknown_project(client):
     assert r.status_code == 200
     assert r.json()["components"][0]["scan_id"] is None and r.json()["stigs"] == []
     assert client.get("/api/projects/nope/stig-rollup").status_code == 404
+
+
+def test_policy_excludes_roles_that_are_not_required():
+    from api import projects_rollup as r
+    comps = [
+        {"app": "midas", "role": "backend", "stigs": _stig("asd", V1="Not a Finding", V2="Not a Finding")},
+        {"app": "midas-ui", "role": "frontend", "stigs": _stig("asd", V1="Open", V2="Open")},
+    ]
+    out = {c["vuln_id"]: c for c in r.rollup(comps, {"v1": ["backend"], "v2": ["infra"]})[0]["controls"]}
+    assert out["V1"]["status"] == "Not a Finding"
+    assert [p["required"] for p in out["V1"]["parts"]] == [True, False]
+    assert out["V2"]["status"] == "Not Reviewed" and "required role: infra" in out["V2"]["reason"]
+
+
+def test_load_policy_validates(tmp_path):
+    from api import projects_rollup as r
+    f = tmp_path / "p.json"
+    assert r.load_policy(f) == ({}, "")
+    f.write_text('{"controls": {"V-1": {"required_roles": ["Backend"]}}}')
+    assert r.load_policy(f) == ({"v-1": ["backend"]}, "")
+    f.write_text('{"controls": {"V-1": {"required_roles": []}}}')
+    assert r.load_policy(f)[1]
+    f.write_text("{not json")
+    assert r.load_policy(f)[1]

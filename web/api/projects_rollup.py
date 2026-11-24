@@ -5,6 +5,9 @@ Not a Finding only when every required part is satisfied; the evidence names wha
 """
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 OPEN = "Open"
 NOT_REVIEWED = "Not Reviewed"
 NOT_APPLICABLE = "Not Applicable"
@@ -25,12 +28,38 @@ def rollup_status(statuses: list[str]) -> str:
     return PASS
 
 
+def load_policy(path: Path) -> tuple[dict[str, list[str]], str]:
+    """Per-control required roles from configuration/stig-policy/project-roles.json.
+
+    Format: {"controls": {"APSC-DV-000070" or "V-222387": {"required_roles": ["backend"]}}}.
+    Returns ({lower-case control key: roles}, error). A missing file is not an error; an
+    unreadable or malformed one is reported and ignored so the roll-up still works.
+    """
+    if not path.is_file():
+        return {}, ""
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+        controls = raw["controls"]
+        if not isinstance(controls, dict):
+            raise TypeError("controls must be an object")
+        out = {}
+        for key, rule in controls.items():
+            roles = rule["required_roles"]
+            if not isinstance(roles, list) or not roles or not all(isinstance(r, str) for r in roles):
+                raise TypeError(f"{key}: required_roles must be a non-empty list of role names")
+            out[str(key).lower()] = [r.lower() for r in roles]
+        return out, ""
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        return {}, f"{path.name} ignored: {exc}"
+
+
 def _reason(status: str, parts: list[dict]) -> str:
     if status == PASS:
-        return "All parts satisfied: " + ", ".join(f"{p['app']} ({p['role']})" for p in parts if p["status"] == PASS)
+        return "All required parts satisfied: " + ", ".join(
+            f"{p['app']} ({p['role']})" for p in parts if p.get("required", True) and p["status"] == PASS)
     if status == NOT_APPLICABLE:
         return "Not applicable to any part of the project"
-    blockers = [p for p in parts if p["status"] not in (PASS, NOT_APPLICABLE)]
+    blockers = [p for p in parts if p.get("required", True) and p["status"] not in (PASS, NOT_APPLICABLE)]
     word = "Open" if status == OPEN else "No assessment for"
     return f"{word}: " + ", ".join(
         f"{p['app']} ({p['role']}) is {p['status'] if p['status'] != 'missing' else 'not scanned'}"
@@ -38,9 +67,12 @@ def _reason(status: str, parts: list[dict]) -> str:
     )
 
 
-def rollup(components: list[dict]) -> list[dict]:
+def rollup(components: list[dict], policy: dict[str, list[str]] | None = None) -> list[dict]:
     """components: [{app, role, stigs: list[stig entry] | None}] where stigs is None when the
-    repository has no STIG scan yet. Returns one entry per STIG slug with rolled-up controls."""
+    repository has no STIG scan yet. ``policy`` maps a lower-case vuln_id or V-number to the roles
+    whose part is required for that control (default: every member role). Returns one entry per
+    STIG slug with rolled-up controls."""
+    policy = policy or {}
     slugs: dict[str, dict] = {}
     for comp in components:
         for stig in comp["stigs"] or []:
@@ -71,10 +103,23 @@ def rollup(components: list[dict]) -> list[dict]:
                 parts.append({"app": comp["app"], "role": comp["role"],
                               "status": c["status"] if c else "missing",
                               "evidence": c.get("evidence", "") if c else ""})
-            status = rollup_status([NOT_REVIEWED if p["status"] == "missing" else p["status"] for p in parts])
-            rows.append({"vuln_id": vid, "number": base.get("number"), "severity": base.get("severity", ""),
+            needed = policy.get(vid.lower())
+            if needed is None:
+                needed = policy.get(str(base.get("group_id", "")).lower())
+            for p in parts:
+                p["required"] = needed is None or p["role"] in needed
+            counted = [p for p in parts if p["required"]]
+            absent = [r for r in (needed or []) if r not in {p["role"] for p in parts}]
+            status = rollup_status([NOT_REVIEWED if p["status"] == "missing" else p["status"] for p in counted]
+                                   + ([NOT_REVIEWED] if absent else []))
+            reason = _reason(status, counted)
+            if absent:
+                reason = f"No repository with required role: {', '.join(absent)}. " + reason
+            if needed is not None and len(counted) != len(parts):
+                reason += f" (policy: only {', '.join(needed)} required)"
+            rows.append({"vuln_id": vid, "group_id": base.get("group_id", ""), "number": base.get("number"), "severity": base.get("severity", ""),
                          "title": base.get("title", ""), "status": status,
-                         "reason": _reason(status, parts), "parts": parts})
+                         "reason": reason, "parts": parts})
         rows.sort(key=lambda r: (r["number"] is None, r["number"] or 0, r["vuln_id"]))
         totals = {"total": len(rows), "open": 0, "pass": 0, "na": 0, "nr": 0}
         for r in rows:

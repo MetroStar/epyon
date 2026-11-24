@@ -542,7 +542,7 @@ def human_review_note(prior: dict[str, Any], new_status: str) -> str:
     return (
         f"Previously reviewed {review.get('reviewed', '?')} by {review.get('reviewer', '?')} as "
         f"'{review.get('status_text') or prior.get('status')}' ({review.get('path', 'docs/stig-reviews')}); "
-        "that review is kept in the repository and was not edited."
+        "that review was not edited."
     )
 
 

@@ -773,6 +773,17 @@ def _initial_batch_calls(batches, call, workers):
 _VERIFY_ENTRY_CHARS = 6000
 
 
+def _load_edits() -> Any:
+    """Import the human-edit store from sibling stig_edits.py."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        "epyon_stig_edits", Path(__file__).parent / "stig_edits.py"
+    )
+    mod = importlib.util.module_from_spec(spec)  # type: ignore[arg-type]
+    spec.loader.exec_module(mod)  # type: ignore[union-attr]
+    return mod
+
+
 def _published_reviews(
     controls: list[dict[str, Any]], target_dir: str, slug: str
 ) -> tuple[dict[str, dict[str, Any]], dict[str, str], dict[str, dict[str, Any]]]:
@@ -2499,6 +2510,22 @@ def _assess_stig(
     else:
         published_locked, reopen_reasons, published_prior = {}, {}, {}
 
+    # Edits people made in the web UI (Epyon-side store, survives scan pruning). They are
+    # verified against the code rather than trusted, and win over a published review.
+    try:
+        edit_prior, edit_reasons = _load_edits().edits_for_scan(app_name, slug, controls)
+    except (OSError, ValueError) as error:
+        print(f"[WARNING] [{slug}] Could not read human edits: {error}", file=sys.stderr)
+        edit_prior, edit_reasons = {}, {}
+    if edit_prior or edit_reasons:
+        print(
+            f"[INFO] [{slug}] Human edits: {len(edit_prior)} to verify, "
+            f"{len(edit_reasons)} not carried over (STIG release changed)",
+            file=sys.stderr,
+        )
+    published_prior = {**published_prior, **edit_prior}
+    reopen_reasons = {**reopen_reasons, **edit_reasons}
+
     reuse_key = None
     result_cache = None
     cached_assessments = None
@@ -2538,7 +2565,15 @@ def _assess_stig(
                 "confidence": 0,
             }
             prior = published_prior.get(c["vuln_id"])
-            if prior and prior.get("locked_by_human"):
+            if prior and prior.get("human_edit"):
+                edit = prior["human_edit"]
+                assessments[c["vuln_id"]] = {
+                    "status": edit["status"], "evidence": edit.get("evidence", ""),
+                    "justification": edit.get("justification", ""), "confidence": 95,
+                    "locked_by_human": True, "human_edit": edit,
+                    "verification_note": "Not verified against the repository: no AI key configured.",
+                }
+            elif prior and prior.get("locked_by_human"):
                 assessments[c["vuln_id"]] = {**prior, "locked_by_previous": True}
     elif cached_assessments is not None:
         assessments = cached_assessments
@@ -2891,6 +2926,14 @@ def _assess_stig(
                         "evidence":   FALLBACK_EVIDENCE,
                         "confidence": 0,
                     }
+
+    for vid, reason in edit_reasons.items():
+        if vid in assessments:
+            assessments[vid]["reopened_reason"] = reason
+    if api_key:
+        for vid, prior in edit_prior.items():
+            if vid in assessments and not assessments[vid].get("human_edit"):
+                assessments[vid] = _load_edits().apply_outcome(prior, assessments[vid])
 
     # Write raw results
     results_path = scan_dir / f"stig-results-{slug}.json"

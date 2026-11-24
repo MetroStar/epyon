@@ -50,6 +50,8 @@ def _build_stig_entries(scan_id: str, matched: Path) -> list[dict]:
                 "status":         assessed.get("status",          "Not Reviewed"),
                 "evidence":       assessed.get("evidence",         ""),
                 "confidence":     assessed.get("confidence",       0),
+                "justification":  assessed.get("justification", ""),
+                "human_edit":     assessed.get("human_edit"),
                 "locked_by_human": bool(assessed.get("locked_by_human", False)),
                 "locked_by_stability": bool(assessed.get("locked_by_stability", False)),
                 "stable_count":    assessed.get("stable_count", 0),

@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.81.0] - 2026-11-23
+
+### Added
+
+- Editable STIG drawer: status, evidence and an optional justification can be edited; Check Content and Remediation stay read-only. Edits are stored in `web/data/stig-edits/{app}.json` and applied by every later scan, which verifies them against the code instead of trusting them. A confirmed edit is locked and keeps your text; a contradicted edit leaves the control Open with a note and keeps the edit.
+
+### Changed
+
+- The justification is a separate optional field. It is no longer prepended to the evidence as `[Human override]`, prefilled from the control title, or required. Bulk lock keeps each control's evidence.
+- An edit made against another release of the same STIG is not carried over; the control is re-assessed and the reason is shown.
 ## [3.80.0] - 2026-11-23
 
 ### Added

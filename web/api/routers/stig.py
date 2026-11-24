@@ -112,6 +112,16 @@ def stig_data(scan_id: str, response: Response):
 _SAFE_SLUG_RE = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9_\-]*\.(md|cklb)$")
 
 
+def _stig_edits_module():
+    """The human-edit store shared with the scan engine (scripts/shell/stig_edits.py)."""
+    import importlib.util
+    path = api_main.EPYON_ROOT / "scripts" / "shell" / "stig_edits.py"
+    spec = importlib.util.spec_from_file_location("epyon_stig_edits", path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
 _VALID_STIG_STATUSES = {"Not a Finding", "Not Applicable", "Open", "Not Reviewed"}
 
 
@@ -120,7 +130,8 @@ class StigOverride(BaseModel):
     vuln_id: str
     status: str
     evidence: str = ""
-    justification: str = ""  # human rationale stored alongside evidence
+    justification: str = ""  # optional rationale; stored separately, never merged into evidence
+    editor: str = ""  # who made the edit, for the record
     clear_lock: bool = False  # when True, removes the human lock and resets to Open
 
 
@@ -128,10 +139,9 @@ class StigOverride(BaseModel):
 def stig_override(scan_id: str, body: StigOverride, response: Response):
     """Apply a human-reviewed override to a single STIG control.
 
-    Sets status, updates evidence, marks locked_by_human=True and
-    confidence=95 so the freeze logic carries this forward on subsequent scans.
-    The justification is prepended to the evidence text so it is visible in
-    the findings report.
+    Saves the edit in the Epyon-side store (web/data/stig-edits, read by every later scan,
+    which verifies it against the code) and mirrors it into this scan's results so the UI
+    updates now. Status, evidence and the optional justification stay separate fields.
     """
     api_main._sec_headers(response)
     if not api_main._SAFE_ID_RE.match(scan_id):
@@ -167,27 +177,34 @@ def stig_override(scan_id: str, body: StigOverride, response: Response):
 
     assessments = raw.get("assessments", raw) if "assessments" in raw else raw
 
-    # Build the updated evidence text — prepend justification if provided
-    new_evidence = body.evidence
-    if body.justification:
-        prefix = f"[Human override] {body.justification}\n"
-        if not new_evidence.startswith(prefix):
-            new_evidence = prefix + new_evidence
+    app_name = re.sub(r"_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}$", "", scan_id)
+    edits = _stig_edits_module()
+    editor = re.sub(r"[^\w .@-]", "", body.editor)[:80] or "web user"
 
     if body.clear_lock:
-        # Remove the human lock; reset to Open with confidence 0 so AI re-assesses next scan
+        # Remove the human lock and the stored edit; reset to Open so AI re-assesses next scan
+        try:
+            edits.clear_edit(app_name, body.slug, body.vuln_id)
+        except (OSError, ValueError) as exc:
+            raise HTTPException(500, f"Could not update the edit store: {exc}") from exc
         assessments[body.vuln_id] = {
-            **assessments.get(body.vuln_id, {}),
-            "status":          "Open",
-            "evidence":        "",
-            "confidence":      0,
-            "locked_by_human": False,
-        }
+            k: v for k, v in assessments.get(body.vuln_id, {}).items()
+            if k not in ("human_edit", "justification", "verification_note")
+        } | {"status": "Open", "evidence": "", "confidence": 0, "locked_by_human": False}
     else:
+        try:
+            edit = edits.save_edit(app_name, body.slug, body.vuln_id, body.status,
+                                   body.evidence, body.justification, editor)
+        except ValueError as exc:
+            raise HTTPException(400, str(exc)) from exc
+        except OSError as exc:
+            raise HTTPException(500, f"Could not save the edit: {exc}") from exc
         assessments[body.vuln_id] = {
             **assessments.get(body.vuln_id, {}),
             "status":          body.status,
-            "evidence":        new_evidence,
+            "evidence":        body.evidence,
+            "justification":   body.justification,
+            "human_edit":      edit,
             "confidence":      95,
             "locked_by_human": True,
         }

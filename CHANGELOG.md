@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Project STIG roll-up: controls show the SV number instead of the APSC-DV id, and clicking a control opens a drawer split by project part (status, evidence, justification and review record per repository, with the check content and remediation once).
+- Project STIG roll-up: controls show the SV number instead of the APSC-DV id, and clicking a control opens a drawer split by project part (status, evidence, justification and review record per repository, with the check content and remediation once). Each part can be edited, discarded or sent to Jira from the drawer; saving re-computes the project status.
 
 ### Fixed
 

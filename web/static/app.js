@@ -9450,11 +9450,13 @@ epyon install-workflow</pre>
     addProjectRepoRow: () => addProjectRepoRow,
     closeProjectModal: () => closeProjectModal,
     deleteProject: () => deleteProject,
+    discardProjectPartEdit: () => discardProjectPartEdit,
     openProjectControl: () => openProjectControl,
     removeProjectRepoRow: () => removeProjectRepoRow,
     renderProjectStig: () => renderProjectStig,
     renderProjects: () => renderProjects,
     saveProject: () => saveProject,
+    saveProjectPartEdit: () => saveProjectPartEdit,
     showProjectModal: () => showProjectModal
   });
 
@@ -10043,14 +10045,92 @@ epyon install-workflow</pre>
   var statusPill = (s) => `<span class="${esc(STATUS_CLASS[s] || "stig-status-nr")}">${esc(statusLabel(s))}</span>`;
   var svNumber = (c) => (String(c.rule_id || "").match(/^SV-\d+/i) || [c.group_id || c.vuln_id])[0];
   var _rollupControls = /* @__PURE__ */ new Map();
+  var _projectId = null;
+  var STATUSES = ["Not a Finding", "Not Applicable", "Open", "Not Reviewed"];
   var _rollupSeq = 0;
+  function partEditHtml(p, d, idx, seq) {
+    const id = (k) => `pd-${k}-${seq}-${idx}`;
+    const regKey = `project__${seq}__${idx}`;
+    _stigRegistry.set(regKey, { c: { ...d, vuln_id: d.vuln_id, _slug: p.slug }, scanId: p.scan_id });
+    return `
+      <div style="margin-top:12px;border-top:1px solid var(--border);padding-top:10px">
+        <div class="finding-detail-label" style="margin-bottom:8px">Assessment (editable)</div>
+        <div class="stig-override-form">
+          <div class="stig-override-row"><label class="stig-override-label">Status</label>
+            <select class="stig-override-select" id="${id("status")}">
+              ${STATUSES.map((st) => `<option value="${esc(st)}"${p.status === st ? " selected" : ""}>${esc(st)}</option>`).join("")}
+            </select></div>
+          <div class="stig-override-row"><label class="stig-override-label">Evidence</label>
+            <textarea class="stig-override-textarea" id="${id("evid")}" rows="5" maxlength="20000"
+              placeholder="Cite the file and value that satisfy (or fail) this control">${esc(p.evidence || "")}</textarea></div>
+          <div class="stig-override-row"><label class="stig-override-label">Justification (optional)</label>
+            <textarea class="stig-override-textarea" id="${id("just")}" rows="2" maxlength="20000">${esc(d.justification || "")}</textarea></div>
+          <div class="stig-override-row stig-override-actions">
+            <button class="btn btn-sm btn-success" ${act("saveProjectPartEdit", p.scan_id, p.slug, d.vuln_id, seq, idx)}>Save edit</button>
+            ${d.locked_by_human ? `<button class="btn btn-sm" ${act("discardProjectPartEdit", p.scan_id, p.slug, d.vuln_id)}>Discard edit</button>` : ""}
+            <button class="btn btn-sm btn-primary" ${act("openStigJiraModal", p.scan_id, [regKey])}>Add to Jira</button>
+            <span class="stig-override-msg" id="${id("msg")}"></span>
+          </div>
+        </div>
+      </div>`;
+  }
+  async function patchOverride(scanId, body, msgEl, done) {
+    msgEl.textContent = "Saving…";
+    msgEl.className = "stig-override-msg";
+    try {
+      const res = await fetch(`/api/scans/${encodeURIComponent(scanId)}/stig-override`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: res.statusText }));
+        throw new Error(err.detail || res.statusText);
+      }
+      msgEl.textContent = "✓ Saved";
+      msgEl.className = "stig-override-msg stig-override-ok";
+      await done();
+    } catch (e) {
+      msgEl.textContent = `Error: ${e.message}`;
+      msgEl.className = "stig-override-msg stig-override-err";
+    }
+  }
+  async function refreshAndReopen(slug, vulnId) {
+    closeFindingDetail2();
+    await renderProjectStig(_projectId);
+    for (const [key, { c, st }] of _rollupControls) {
+      if (c.vuln_id === vulnId && c.parts.some((p) => p.slug === slug)) {
+        openProjectControl(key);
+        break;
+      }
+    }
+  }
+  function saveProjectPartEdit(scanId, slug, vulnId, seq, idx) {
+    const el = (k) => document.getElementById(`pd-${k}-${seq}-${idx}`);
+    return patchOverride(scanId, {
+      slug,
+      vuln_id: vulnId,
+      status: el("status").value,
+      evidence: el("evid").value.trim(),
+      justification: el("just").value.trim()
+    }, el("msg"), () => refreshAndReopen(slug, vulnId));
+  }
+  function discardProjectPartEdit(scanId, slug, vulnId) {
+    const msg = document.querySelector(".finding-drawer .stig-override-msg") || document.createElement("span");
+    return patchOverride(
+      scanId,
+      { slug, vuln_id: vulnId, status: "Open", justification: "", clear_lock: true },
+      msg,
+      () => refreshAndReopen(slug, vulnId)
+    );
+  }
   function openProjectControl(key) {
     const entry = _rollupControls.get(key);
     if (!entry) return;
     const { c, st } = entry;
     closeFindingDetail2();
     const sev = (c.severity || "unknown").toLowerCase();
-    const partHtml = c.parts.map((p) => {
+    const partHtml = c.parts.map((p, idx) => {
       const d = p.detail || {};
       const role = ROLE_LABEL[p.role] || p.role;
       if (p.required === false) {
@@ -10070,6 +10150,7 @@ epyon install-workflow</pre>
       ${d.justification ? `<div class="finding-detail-label" style="margin-top:10px">Justification</div><div style="font-size:13px">${esc(d.justification)}</div>` : ""}
       <div style="font-size:12px;color:var(--text-muted);margin-top:8px">Confidence ${esc(conf)}/100${d.locked_by_human ? " · 🔒 edited by a reviewer" : ""}</div>
       ${stigRecordHtml(d)}
+      ${p.scan_id ? partEditHtml(p, { ...d, vuln_id: c.vuln_id }, idx, key) : ""}
       ${p.scan_id ? `<div style="margin-top:10px"><a class="btn btn-sm" href="#/stig-viewer/${encodeURIComponent(p.scan_id)}">Open in ${esc(p.app)} STIG viewer</a></div>` : ""}`}
     </section>`;
     }).join("");
@@ -10113,6 +10194,7 @@ epyon install-workflow</pre>
     document.body.appendChild(drawer);
   }
   async function renderProjectStig(id) {
+    _projectId = id;
     setActive("projects");
     const page = document.getElementById("page");
     page.innerHTML = loading();

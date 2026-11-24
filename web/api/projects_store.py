@@ -1,6 +1,7 @@
 """Projects: a system / ATO boundary made of one or more applications (repos).
 
-A project lists member applications, each tagged with a role. An application can
+A project lists member applications, each tagged with a role, and optionally third-party
+components (name, role, note) that have no repository or STIG and are only listed. An application can
 belong to several projects. Projects are stored in ``web/data/projects.json``
 (the persisted data volume); the file holds no secrets.
 """
@@ -71,7 +72,22 @@ def _clean(body: dict) -> dict:
             raise ProjectError(f"application listed twice: {app}")
         seen.add(app)
         repos.append({"app": app, "role": role})
-    return {"name": name, "description": description, "jira_project_key": jira_key, "repos": repos}
+    external, names = [], set()
+    for item in body.get("external") or []:
+        if not isinstance(item, dict):
+            raise ProjectError("each third-party component must be an object with name, role and note")
+        ename = str(item.get("name") or "").strip()
+        role = str(item.get("role") or "other").strip().lower()
+        if not ename or len(ename) > 80:
+            raise ProjectError("third-party component name is required (80 characters or fewer)")
+        if role not in ROLES:
+            raise ProjectError(f"role must be one of: {', '.join(ROLES)}")
+        if ename.lower() in names:
+            raise ProjectError(f"third-party component listed twice: {ename}")
+        names.add(ename.lower())
+        external.append({"name": ename, "role": role, "note": str(item.get("note") or "").strip()[:200]})
+    return {"name": name, "description": description, "jira_project_key": jira_key, "repos": repos,
+            "external": external}
 
 
 def create_project(body: dict) -> dict:

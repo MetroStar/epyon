@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.83.0] - 2026-11-24
+
+### Added
+
+- Projects can list third-party components (name, role, note) that have no repository or STIG, such as an identity provider or vendor API. They appear on the Projects page and the roll-up page, and never affect the roll-up.
+
 ## [3.82.1] - 2026-11-24
 
 ### Changed

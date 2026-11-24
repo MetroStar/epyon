@@ -15,6 +15,12 @@ let _appNames = [];
 
 const ROLE_LABEL = { frontend: 'Frontend', backend: 'Backend', infra: 'Infrastructure', other: 'Other' };
 
+const externalBadges = list => (list && list.length) ? `
+      <div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:8px;align-items:center">
+        <span style="font-size:12px;color:var(--text-dim)">Third-party (not STIG-assessed):</span>
+        ${list.map(x => `<span class="app-type-badge" title="${esc(x.note || '')}">${esc(x.name)} <span style="opacity:.7">· ${esc(ROLE_LABEL[x.role] || x.role)}</span></span>`).join('')}
+      </div>` : '';
+
 export async function renderProjects() {
   setActive('projects');
   const page = document.getElementById('page');
@@ -43,6 +49,7 @@ export async function renderProjects() {
           <button class="btn btn-danger" ${act('deleteProject', p.id)}>Delete</button>
         </div>
       </div>
+      ${externalBadges(p.external)}
       <div style="margin-top:12px;display:flex;flex-wrap:wrap;gap:8px">
         ${p.repos.length ? p.repos.map(r => `
           <a class="app-type-badge evaluation" href="#/applications/${encodeURIComponent(r.app)}" style="text-decoration:none">
@@ -260,7 +267,20 @@ export async function renderProjectStig(id) {
     })}
     ${data.policy_error ? `<div style="margin-bottom:12px;padding:10px 12px;border:1px solid var(--border);border-left:3px solid var(--stig-open);border-radius:6px;font-size:13px">Role policy not applied: ${esc(data.policy_error)}</div>` : ''}
     <div style="margin-bottom:16px;display:flex;flex-wrap:wrap;gap:8px">${sources}</div>
+    ${data.external && data.external.length ? `<div style="margin:-6px 0 16px;font-size:13px;color:var(--text-muted)">${externalBadges(data.external)}They are listed for the project and do not affect the roll-up.</div>` : ''}
     ${tables || emptyState('No STIG results yet', 'Run a STIG scan on the project repositories to see the roll-up.')}`;
+}
+
+function externalRow(x = { name: '', role: 'other', note: '' }) {
+  return `
+    <div class="project-external-row" style="display:flex;gap:8px;margin-bottom:8px">
+      <input class="field-input project-external-name" aria-label="Component name" maxlength="80" placeholder="e.g. Keycloak" value="${esc(x.name)}" style="flex:2">
+      <select class="field-input project-external-role" style="flex:1">
+        ${_roles.map(r => `<option value="${esc(r)}"${r === x.role ? ' selected' : ''}>${esc(ROLE_LABEL[r] || r)}</option>`).join('')}
+      </select>
+      <input class="field-input project-external-note" aria-label="Note" maxlength="200" placeholder="Note (optional)" value="${esc(x.note || '')}" style="flex:2">
+      <button class="btn" type="button" ${act('removeProjectExternalRow', ARG.el)} aria-label="Remove component">✕</button>
+    </div>`;
 }
 
 function repoRow(repo = { app: '', role: 'other' }) {
@@ -307,6 +327,12 @@ export function showProjectModal(id) {
         <div id="project-repo-rows">${(project.repos.length ? project.repos : [undefined, undefined]).map(r => repoRow(r)).join('')}</div>
         <button class="btn" type="button" ${act('addProjectRepoRow')}>+ Add repository</button>
       </div>
+      <div style="margin-bottom:14px">
+        <label class="field-label">Third-party components (no STIG)</label>
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px">Software you depend on but cannot assess, such as an identity provider or a vendor API. Listed on the project; they never block the roll-up.</div>
+        <div id="project-external-rows">${(project.external || []).map(x => externalRow(x)).join('')}</div>
+        <button class="btn" type="button" ${act('addProjectExternalRow')}>+ Add third-party component</button>
+      </div>
       <div id="project-modal-error" style="color:var(--critical);font-size:13px;margin-bottom:10px" role="alert"></div>
       <div style="display:flex;justify-content:flex-end;gap:8px">
         <button class="btn" ${act('closeProjectModal')}>Cancel</button>
@@ -323,6 +349,14 @@ export function closeProjectModal() {
 
 export function addProjectRepoRow() {
   document.getElementById('project-repo-rows')?.insertAdjacentHTML('beforeend', repoRow());
+}
+
+export function addProjectExternalRow() {
+  document.getElementById('project-external-rows')?.insertAdjacentHTML('beforeend', externalRow());
+}
+
+export function removeProjectExternalRow(btn) {
+  btn?.closest('.project-external-row')?.remove();
 }
 
 export function removeProjectRepoRow(btn) {
@@ -342,6 +376,13 @@ export async function saveProject() {
     description: document.getElementById('project-desc').value.trim(),
     jira_project_key: document.getElementById('project-jira').value.trim(),
     repos,
+    external: [...document.querySelectorAll('.project-external-row')]
+      .map(row => ({
+        name: row.querySelector('.project-external-name').value.trim(),
+        role: row.querySelector('.project-external-role').value,
+        note: row.querySelector('.project-external-note').value.trim(),
+      }))
+      .filter(x => x.name),
   };
   try {
     await (id ? api.updateProject(id, body) : api.createProject(body));

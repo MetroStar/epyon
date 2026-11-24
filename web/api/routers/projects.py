@@ -79,5 +79,5 @@ def project_stig_rollup(project_id: str, response: Response):
     policy, policy_error = projects_rollup.load_policy(
         api_main.EPYON_ROOT / "configuration" / "stig-policy" / "project-roles.json")
     return {"project": {"id": project["id"], "name": project["name"]},
-            "components": sources, "policy_error": policy_error,
+            "components": sources, "external": project.get("external", []), "policy_error": policy_error,
             "stigs": projects_rollup.rollup(components, policy)}

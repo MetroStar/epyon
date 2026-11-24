@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.82.2] - 2026-11-24
+
+### Changed
+
+- Overview: repositories that belong to a project are grouped under that project (with their role and a link to its STIG roll-up); remaining applications are listed under "Other applications".
+
 ## [3.82.1] - 2026-11-24
 
 ### Changed

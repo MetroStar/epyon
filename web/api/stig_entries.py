@@ -64,7 +64,7 @@ def _build_stig_entries(scan_id: str, matched: Path) -> list[dict]:
         stigs.append({
             "slug":        slug,
             "stig_name":   controls_data.get("stig_name", slug),
-            "release_info": controls_data.get("release_info", ""),
+            "release_info": _release_label(controls_data.get("release_info", ""), slug),
             "total":       len(merged),
             "controls":    merged,
             "md_url":      f"/api/scans/{scan_id}/stig-findings/{app_slug}-{slug}.md"   if md_file.exists()   else None,
@@ -72,3 +72,11 @@ def _build_stig_entries(scan_id: str, matched: Path) -> list[dict]:
         })
 
     return stigs
+
+
+def _release_label(stored: str, slug: str) -> str:
+    """Scans made before the parser fix stored the XCCDF conventions version (e.g. 1.10.0); use the slug's V6R5 instead."""
+    if re.search(r"V\d+R\d+|Release", stored or "", re.IGNORECASE):
+        return stored
+    m = re.search(r"v(\d+)r(\d+)", slug or "", re.IGNORECASE)
+    return f"V{m.group(1)}R{m.group(2)}" if m else (stored or "")

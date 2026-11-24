@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.82.1] - 2026-11-24
+
+### Changed
+
+- Project STIG roll-up: controls show the SV number instead of the APSC-DV id, and clicking a control opens a drawer split by project part (status, evidence, justification and review record per repository, with the check content and remediation once). Each part can be edited, discarded or sent to Jira from the drawer; saving re-computes the project status.
+
+### Fixed
+
+- The STIG version shown was the XCCDF conventions version (1.10.0). It is now the STIG version and release (for example V6R5, 30 Sep 2026); scans made earlier derive it from the STIG name.
+
 ## [3.82.0] - 2026-11-24
 
 ### Added

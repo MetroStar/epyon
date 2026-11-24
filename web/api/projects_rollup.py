@@ -28,6 +28,9 @@ def rollup_status(statuses: list[str]) -> str:
     return PASS
 
 
+_TEXT_KEYS = {"check_content", "fix_text", "discussion"}  # shared by every part, sent once per control
+
+
 def load_policy(path: Path) -> tuple[dict[str, list[str]], str]:
     """Per-control required roles from configuration/stig-policy/project-roles.json.
 
@@ -100,9 +103,10 @@ def rollup(components: list[dict], policy: dict[str, list[str]] | None = None) -
             parts = []
             for comp, cmap in by_comp:
                 c = cmap.get(vid)
-                parts.append({"app": comp["app"], "role": comp["role"],
+                parts.append({"app": comp["app"], "role": comp["role"], "scan_id": comp.get("scan_id"), "slug": slug,
                               "status": c["status"] if c else "missing",
-                              "evidence": c.get("evidence", "") if c else ""})
+                              "evidence": c.get("evidence", "") if c else "",
+                              "detail": {k: v for k, v in c.items() if k not in _TEXT_KEYS} if c else {}})
             needed = policy.get(vid.lower())
             if needed is None:
                 needed = policy.get(str(base.get("group_id", "")).lower())
@@ -117,7 +121,9 @@ def rollup(components: list[dict], policy: dict[str, list[str]] | None = None) -
                 reason = f"No repository with required role: {', '.join(absent)}. " + reason
             if needed is not None and len(counted) != len(parts):
                 reason += f" (policy: only {', '.join(needed)} required)"
-            rows.append({"vuln_id": vid, "group_id": base.get("group_id", ""), "number": base.get("number"), "severity": base.get("severity", ""),
+            rows.append({"vuln_id": vid, "group_id": base.get("group_id", ""),
+                         "rule_id": base.get("rule_id", ""), "severity": base.get("severity", ""),
+                         "check_content": base.get("check_content", ""), "fix_text": base.get("fix_text", ""), "number": base.get("number"), "severity": base.get("severity", ""),
                          "title": base.get("title", ""), "status": status,
                          "reason": reason, "parts": parts})
         rows.sort(key=lambda r: (r["number"] is None, r["number"] or 0, r["vuln_id"]))

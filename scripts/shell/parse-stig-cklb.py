@@ -100,9 +100,17 @@ def _parse_xccdf_xml(path: str) -> dict:
     # Benchmark-level metadata
     stig_name = _xccdf_text(root, "title")
     release_info = ""
+    release_text = ""
     for pt in root.findall(f"{{{ns}}}plain-text"):
-        if pt.text:
-            release_info = pt.text.strip()
+        if pt.get("id") == "release-info" and pt.text:
+            release_text = pt.text.strip()  # "Release: 5 Benchmark Date: 30 Sep 2026"
+    version_el = root.find(f"{{{ns}}}version")
+    rel = re.search(r"Release:\s*(\d+)", release_text)
+    date = re.search(r"Benchmark Date:\s*(.+)", release_text)
+    if version_el is not None and version_el.text and rel:
+        release_info = f"V{version_el.text.strip()}R{rel.group(1)}" + (f", {date.group(1).strip()}" if date else "")
+    else:
+        release_info = release_text
 
     groups = root.findall(f"{{{ns}}}Group")
     if not groups:

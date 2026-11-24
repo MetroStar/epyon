@@ -21,7 +21,7 @@ against `main` at 3.73.0 (PR #282 in review).
 | 11 | Editable STIG drawer fields | Feature (done in 3.81.0) |
 | 12 | Jira button on the STIG drawer | Bug (fixed in #291) |
 | 13 | Optional justification that never overwrites evidence | Feature (done in 3.81.0) |
-| 14 | Projects: pairing repos, repos in many projects, front-end/back-end STIG pairing | Design |
+| 14 | Projects: pairing repos, repos in many projects, front-end/back-end STIG pairing | Feature (done in 3.79.0-3.82.0; Jira mapping open) |
 
 ## Decisions so far (confirmed by product owner)
 
@@ -386,6 +386,9 @@ mappings, and remediation text.
   parts are satisfied.
 - *Phase 1 (done, 3.79.0):* Projects page and API: name, description, Jira key, repos with
   roles. *Phase 2 (done, 3.80.0):* per-project STIG roll-up page. *Per-control overrides (done, 3.82.0):* `configuration/stig-policy/project-roles.json`, `{"controls": {"V-222387": {"required_roles": ["backend"]}}}`; other roles show "not required".
-- *Open:* how a project maps to Jira keys (proposed: a default key per project, with the
-  per-app key as an override); roll-up display in the UI; how a control maps to a role
-  (proposed: CCI/SRG mapping plus an override file in `configuration/stig-policy/`).
+- *Done:* per-project roll-up display ("Evidence needed" for Not Reviewed or missing parts,
+  "not required" for roles excluded by the policy file); repository field is a dropdown of
+  registered apps.
+- *Still open:* how a project maps to Jira keys (proposed: a default key per project, with
+  the per-app key as an override); automatic control-to-role mapping by CCI/SRG (today only
+  the explicit override file).

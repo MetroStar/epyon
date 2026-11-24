@@ -68,6 +68,21 @@ export const api = {
     
     return r.json();
   },
+  async _put(url, body) {
+    const r = await fetch(url, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!r.ok) {
+      let detail = r.statusText;
+      try { detail = (await r.json()).detail || detail; } catch (_) {}
+      const err = new Error(`${detail} (${r.status})`);
+      err.detail = detail;
+      throw err;
+    }
+    return r.json();
+  },
   async _delete(url) {
     const r = await fetch(url, { method: 'DELETE' });
     if (!r.ok) {
@@ -83,6 +98,11 @@ export const api = {
   },
   getStats()          { return this._get('/api/stats'); },
   getApplications()   { return this._get('/api/applications'); },
+  getProjects()          { return this._get('/api/projects', false); },
+  createProject(body)    { return this._post('/api/projects', body); },
+  updateProject(id, body){ return this._put(`/api/projects/${encodeURIComponent(id)}`, body); },
+  deleteProject(id)      { return this._delete(`/api/projects/${encodeURIComponent(id)}`); },
+  getProjectStigRollup(id){ return this._get(`/api/projects/${encodeURIComponent(id)}/stig-rollup`, false); },
   getHiddenApps()     { return this._get('/api/applications-hidden'); },
   hideApp(name)       { return this._post('/api/applications/hide', { name }); },
   restoreApp(name)    { return this._post('/api/applications/restore', { name }); },

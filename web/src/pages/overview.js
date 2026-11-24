@@ -67,7 +67,10 @@ export async function renderOverview() {
       return `<div class="section">
         <div class="section-title">
           <span>▣ ${esc(p.name)} <span style="font-size:12px;font-weight:400;color:var(--text-muted)">(${p.repos.length} repositor${p.repos.length === 1 ? 'y' : 'ies'})</span></span>
-          <button class="btn btn-sm" ${act('editProject', p.id)}>Project properties</button>
+          <span style="display:flex;gap:8px">
+            <button class="btn btn-sm" ${act('editProject', p.id)}>Project properties</button>
+            <button class="btn btn-sm" ${act('navigate', `#/projects/${encodeURIComponent(p.id)}`)}>STIG roll-up →</button>
+          </span>
         </div>
         ${p.description ? `<div style="font-size:13px;color:var(--text-muted);margin-bottom:10px">${esc(p.description)}</div>` : ''}
         <div class="project-card-body">

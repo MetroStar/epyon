@@ -1,5 +1,6 @@
 import { emptyState, errBanner, loading, pageHeader } from '../components/layout.js';
 import { confirmDialog, toast } from '../components/feedback.js';
+import { sevBadgeRow } from '../components/badges.js';
 import { api } from '../lib/api.js';
 import { esc, act, actOn, ARG, ucFirst } from '../lib/format.js';
 import { closeFindingDetail } from '../components/drawers/finding.js';
@@ -12,12 +13,41 @@ import { _stigRegistry } from '../state/registries.js';
 let _projects = [];
 let _roles = ['frontend', 'backend', 'infra', 'other'];
 let _appNames = [];
+let _appsByName = {};
 
 const ROLE_LABEL = { frontend: 'Frontend', backend: 'Backend', infra: 'Infrastructure', other: 'Other' };
 
+const SEVS = ['critical', 'high', 'medium', 'low'];
+
+// Vulnerability counts from each member's latest scan, summed across the project.
+function cveSnapshot(p) {
+  const members = [...p.repos, ...(p.external || []).map(x => ({ app: x.name, role: x.role, third: true }))];
+  const totals = { critical: 0, high: 0, medium: 0, low: 0 };
+  const rows = members.map(m => {
+    const a = _appsByName[m.app];
+    if (a) SEVS.forEach(k => { totals[k] += Number(a[k]) || 0; });
+    return { ...m, scan: a };
+  });
+  const scanned = rows.filter(r => r.scan).length;
+  const tiles = SEVS.map(k => `
+    <a class="project-sev ${k}${totals[k] ? '' : ' zero'}" href="#/applications" title="${ucFirst(k)}">
+      <span class="num">${totals[k]}</span><span class="lbl">${ucFirst(k)}</span></a>`).join('');
+  const list = rows.map(r => `
+    <div class="project-cve-row">
+      <a href="#/applications/${encodeURIComponent(r.app)}">${esc(r.app)}${r.third ? ' <span class="project-card-meta">(third-party)</span>' : ''}</a>
+      <span>${r.scan ? sevBadgeRow(r.scan) : '<span class="project-card-meta">Not scanned</span>'}</span>
+    </div>`).join('');
+  return `
+    <div class="project-snapshot">
+      <div class="project-chips-label">Vulnerabilities <span style="text-transform:none;letter-spacing:0;font-weight:400">· latest scan of ${scanned}/${rows.length}</span></div>
+      <div class="project-sev-row">${tiles}</div>
+      ${list}
+    </div>`;
+}
+
 const externalBadges = list => (list && list.length) ? `
       <div class="project-chips">
-        <span class="project-chips-label">Third-party (no STIG)</span>
+        <span class="project-chips-label">Third-party, no STIG</span>
         ${list.map(x => `<span class="app-type-badge" title="${esc(x.note || '')}">${esc(x.name)} <span style="opacity:.7">· ${esc(ROLE_LABEL[x.role] || x.role)}</span></span>`).join('')}
       </div>` : '';
 
@@ -30,6 +60,7 @@ export async function renderProjects() {
     _projects = data.projects || [];
     _roles = data.roles || _roles;
     _appNames = (apps || []).map(a => a.name).sort();
+    _appsByName = Object.fromEntries((apps || []).map(a => [a.name, a]));
   } catch (e) {
     page.innerHTML = errBanner(e.message);
     return;
@@ -49,6 +80,8 @@ export async function renderProjects() {
           <button class="btn btn-danger" ${act('deleteProject', p.id)}>Delete</button>
         </div>
       </div>
+      <div class="project-card-body">
+      <div class="project-card-members">
       <div class="project-chips">
         <span class="project-chips-label">Repositories</span>
         ${p.repos.length ? p.repos.map(r => `
@@ -57,6 +90,9 @@ export async function renderProjects() {
           </a>`).join('') : '<span class="project-card-meta">No repositories yet</span>'}
       </div>
       ${externalBadges(p.external)}
+      </div>
+      ${cveSnapshot(p)}
+      </div>
     </div>`).join('');
 
   page.innerHTML = `

@@ -10019,10 +10019,38 @@ epyon install-workflow</pre>
   var _projects = [];
   var _roles = ["frontend", "backend", "infra", "other"];
   var _appNames = [];
+  var _appsByName = {};
   var ROLE_LABEL = { frontend: "Frontend", backend: "Backend", infra: "Infrastructure", other: "Other" };
+  var SEVS = ["critical", "high", "medium", "low"];
+  function cveSnapshot(p) {
+    const members = [...p.repos, ...(p.external || []).map((x) => ({ app: x.name, role: x.role, third: true }))];
+    const totals = { critical: 0, high: 0, medium: 0, low: 0 };
+    const rows = members.map((m) => {
+      const a = _appsByName[m.app];
+      if (a) SEVS.forEach((k) => {
+        totals[k] += Number(a[k]) || 0;
+      });
+      return { ...m, scan: a };
+    });
+    const scanned = rows.filter((r) => r.scan).length;
+    const tiles = SEVS.map((k) => `
+    <a class="project-sev ${k}${totals[k] ? "" : " zero"}" href="#/applications" title="${ucFirst(k)}">
+      <span class="num">${totals[k]}</span><span class="lbl">${ucFirst(k)}</span></a>`).join("");
+    const list = rows.map((r) => `
+    <div class="project-cve-row">
+      <a href="#/applications/${encodeURIComponent(r.app)}">${esc(r.app)}${r.third ? ' <span class="project-card-meta">(third-party)</span>' : ""}</a>
+      <span>${r.scan ? sevBadgeRow(r.scan) : '<span class="project-card-meta">Not scanned</span>'}</span>
+    </div>`).join("");
+    return `
+    <div class="project-snapshot">
+      <div class="project-chips-label">Vulnerabilities <span style="text-transform:none;letter-spacing:0;font-weight:400">· latest scan of ${scanned}/${rows.length}</span></div>
+      <div class="project-sev-row">${tiles}</div>
+      ${list}
+    </div>`;
+  }
   var externalBadges = (list) => list && list.length ? `
       <div class="project-chips">
-        <span class="project-chips-label">Third-party (no STIG)</span>
+        <span class="project-chips-label">Third-party, no STIG</span>
         ${list.map((x) => `<span class="app-type-badge" title="${esc(x.note || "")}">${esc(x.name)} <span style="opacity:.7">· ${esc(ROLE_LABEL[x.role] || x.role)}</span></span>`).join("")}
       </div>` : "";
   async function renderProjects() {
@@ -10034,6 +10062,7 @@ epyon install-workflow</pre>
       _projects = data.projects || [];
       _roles = data.roles || _roles;
       _appNames = (apps || []).map((a) => a.name).sort();
+      _appsByName = Object.fromEntries((apps || []).map((a) => [a.name, a]));
     } catch (e) {
       page.innerHTML = errBanner(e.message);
       return;
@@ -10052,6 +10081,8 @@ epyon install-workflow</pre>
           <button class="btn btn-danger" ${act("deleteProject", p.id)}>Delete</button>
         </div>
       </div>
+      <div class="project-card-body">
+      <div class="project-card-members">
       <div class="project-chips">
         <span class="project-chips-label">Repositories</span>
         ${p.repos.length ? p.repos.map((r) => `
@@ -10060,6 +10091,9 @@ epyon install-workflow</pre>
           </a>`).join("") : '<span class="project-card-meta">No repositories yet</span>'}
       </div>
       ${externalBadges(p.external)}
+      </div>
+      ${cveSnapshot(p)}
+      </div>
     </div>`).join("");
     page.innerHTML = `
     ${pageHeader("Projects", {
@@ -11965,6 +11999,270 @@ Frontend Cache:
       e.preventDefault();
       el.click();
     });
+  }
+
+  // src/core/select.js
+  var ENHANCED = /* @__PURE__ */ new WeakMap();
+  var valueDesc = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value");
+  var open = null;
+  function optionsOf(sel) {
+    const out = [];
+    for (const node of sel.children) {
+      if (node.tagName === "OPTGROUP") {
+        out.push({ group: node.label });
+        for (const o of node.children) out.push({ o, indent: true });
+      } else if (node.tagName === "OPTION") out.push({ o: node });
+    }
+    return out;
+  }
+  function selectedLabel(sel) {
+    const o = sel.options[sel.selectedIndex];
+    return o ? o.textContent.trim() : "";
+  }
+  function closeMenu() {
+    if (!open) return;
+    open.menu.remove();
+    open.btn.setAttribute("aria-expanded", "false");
+    open = null;
+  }
+  function sync(sel) {
+    const st = ENHANCED.get(sel);
+    if (!st) return;
+    const label = selectedLabel(sel);
+    st.text.textContent = label || " ";
+    st.btn.classList.toggle("cs-placeholder", !sel.value);
+    st.btn.disabled = sel.disabled;
+    st.wrap.hidden = sel.style.display === "none" || sel.hidden;
+    if (open && open.sel === sel) renderItems(open);
+  }
+  function renderItems(ctx) {
+    const { sel, menu } = ctx;
+    menu.innerHTML = "";
+    ctx.items = [];
+    for (const entry of optionsOf(sel)) {
+      if (entry.group !== void 0) {
+        const g = document.createElement("div");
+        g.className = "cs-group";
+        g.textContent = entry.group;
+        menu.appendChild(g);
+        continue;
+      }
+      const item = document.createElement("div");
+      item.className = "cs-item" + (entry.indent ? " cs-indent" : "");
+      item.setAttribute("role", "option");
+      item.textContent = entry.o.textContent.trim() || " ";
+      if (entry.o.selected) {
+        item.classList.add("cs-selected");
+        item.setAttribute("aria-selected", "true");
+      }
+      if (entry.o.disabled) item.classList.add("cs-disabled");
+      item._opt = entry.o;
+      menu.appendChild(item);
+      ctx.items.push(item);
+    }
+    setActive3(ctx, ctx.items.findIndex((i) => i._opt.selected));
+  }
+  function setActive3(ctx, idx) {
+    ctx.items.forEach((i) => i.classList.remove("cs-active"));
+    if (idx < 0) idx = 0;
+    ctx.active = idx;
+    const item = ctx.items[idx];
+    if (item) {
+      item.classList.add("cs-active");
+      item.scrollIntoView({ block: "nearest" });
+    }
+  }
+  function choose(sel, opt) {
+    if (!opt || opt.disabled) return;
+    const changed = sel.options[sel.selectedIndex] !== opt;
+    valueDesc.set.call(sel, opt.value);
+    sync(sel);
+    closeMenu();
+    if (changed) sel.dispatchEvent(new Event("change", { bubbles: true }));
+  }
+  function position(ctx) {
+    const r = ctx.btn.getBoundingClientRect();
+    const { menu } = ctx;
+    menu.style.minWidth = `${r.width}px`;
+    menu.style.left = `${r.left}px`;
+    const below = window.innerHeight - r.bottom - 8;
+    const above = r.top - 8;
+    const flip = below < 160 && above > below;
+    menu.style.maxHeight = `${Math.max(120, Math.min(280, flip ? above : below))}px`;
+    if (flip) {
+      menu.style.top = "";
+      menu.style.bottom = `${window.innerHeight - r.top + 4}px`;
+    } else {
+      menu.style.bottom = "";
+      menu.style.top = `${r.bottom + 4}px`;
+    }
+  }
+  function openMenu(sel) {
+    const st = ENHANCED.get(sel);
+    if (!st || sel.disabled) return;
+    if (open && open.sel === sel) return;
+    closeMenu();
+    const menu = document.createElement("div");
+    menu.className = "cs-menu";
+    menu.setAttribute("role", "listbox");
+    open = { sel, btn: st.btn, menu, items: [], active: 0, typed: "", typedAt: 0 };
+    renderItems(open);
+    document.body.appendChild(menu);
+    position(open);
+    st.btn.setAttribute("aria-expanded", "true");
+    menu.addEventListener("mousedown", (e) => e.preventDefault());
+    menu.addEventListener("click", (e) => {
+      const item = e.target.closest(".cs-item");
+      if (item) choose(sel, item._opt);
+    });
+    menu.addEventListener("mousemove", (e) => {
+      const item = e.target.closest(".cs-item");
+      if (item) setActive3(open, open.items.indexOf(item));
+    });
+  }
+  function onKey(sel, e) {
+    const st = ENHANCED.get(sel);
+    if (!open || open.sel !== sel) {
+      if (["ArrowDown", "ArrowUp", "Enter", " "].includes(e.key)) {
+        e.preventDefault();
+        openMenu(sel);
+      }
+      return;
+    }
+    const step = (d) => {
+      let i = open.active;
+      do {
+        i += d;
+      } while (open.items[i] && open.items[i]._opt.disabled);
+      if (open.items[i]) setActive3(open, i);
+    };
+    switch (e.key) {
+      case "ArrowDown":
+        e.preventDefault();
+        step(1);
+        break;
+      case "ArrowUp":
+        e.preventDefault();
+        step(-1);
+        break;
+      case "Home":
+        e.preventDefault();
+        setActive3(open, 0);
+        break;
+      case "End":
+        e.preventDefault();
+        setActive3(open, open.items.length - 1);
+        break;
+      case "Enter":
+      case " ":
+        e.preventDefault();
+        choose(sel, open.items[open.active]?._opt);
+        break;
+      case "Escape":
+        e.preventDefault();
+        e.stopPropagation();
+        closeMenu();
+        st.btn.focus();
+        break;
+      case "Tab":
+        closeMenu();
+        break;
+      default:
+        if (e.key.length === 1 && !e.ctrlKey && !e.metaKey) {
+          const now = Date.now();
+          open.typed = (now - open.typedAt < 700 ? open.typed : "") + e.key.toLowerCase();
+          open.typedAt = now;
+          const i = open.items.findIndex((it) => !it._opt.disabled && it.textContent.toLowerCase().startsWith(open.typed));
+          if (i >= 0) setActive3(open, i);
+        }
+    }
+  }
+  function enhanceSelect(sel) {
+    if (ENHANCED.has(sel) || sel.multiple || sel.size > 1 || "native" in sel.dataset) return;
+    const wrap = document.createElement("div");
+    wrap.className = "cs";
+    wrap.style.cssText = sel.style.cssText;
+    wrap.style.display = "";
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = `cs-btn ${sel.className}`.trim();
+    btn.setAttribute("aria-haspopup", "listbox");
+    btn.setAttribute("aria-expanded", "false");
+    const label = sel.getAttribute("aria-label");
+    if (label) btn.setAttribute("aria-label", label);
+    else if (sel.id) {
+      const l = document.querySelector(`label[for="${CSS.escape(sel.id)}"]`) || sel.closest("label");
+      if (l) btn.setAttribute("aria-label", l.textContent.trim());
+    }
+    const text = document.createElement("span");
+    text.className = "cs-text";
+    const caret = document.createElement("span");
+    caret.className = "cs-caret";
+    caret.setAttribute("aria-hidden", "true");
+    btn.append(text, caret);
+    wrap.appendChild(btn);
+    sel.classList.add("cs-native");
+    sel.tabIndex = -1;
+    sel.after(wrap);
+    const observer = new MutationObserver(() => sync(sel));
+    observer.observe(sel, {
+      childList: true,
+      subtree: true,
+      characterData: true,
+      attributes: true,
+      attributeFilter: ["disabled", "style", "hidden", "selected", "label"]
+    });
+    ENHANCED.set(sel, { wrap, btn, text, observer });
+    Object.defineProperty(sel, "value", {
+      configurable: true,
+      get() {
+        return valueDesc.get.call(sel);
+      },
+      set(v) {
+        valueDesc.set.call(sel, v);
+        sync(sel);
+      }
+    });
+    sel.addEventListener("change", () => sync(sel));
+    btn.addEventListener("click", () => open && open.sel === sel ? closeMenu() : openMenu(sel));
+    btn.addEventListener("keydown", (e) => onKey(sel, e));
+    btn.addEventListener("blur", () => {
+      if (open && open.sel === sel) closeMenu();
+    });
+    sync(sel);
+  }
+  function enhanceWithin(root) {
+    if (root.nodeType !== 1) return;
+    if (root.matches("select")) enhanceSelect(root);
+    root.querySelectorAll?.("select").forEach(enhanceSelect);
+  }
+  function cleanupWithin(root) {
+    if (root.nodeType !== 1) return;
+    const sels = root.matches("select") ? [root] : [...root.querySelectorAll("select")];
+    for (const sel of sels) {
+      if (sel.isConnected) continue;
+      const st = ENHANCED.get(sel);
+      if (!st) continue;
+      st.observer.disconnect();
+      if (open && open.sel === sel) closeMenu();
+    }
+  }
+  if (typeof document !== "undefined" && !window.__customSelect) {
+    window.__customSelect = true;
+    enhanceWithin(document.body);
+    new MutationObserver((muts) => {
+      for (const m of muts) {
+        m.removedNodes.forEach(cleanupWithin);
+        m.addedNodes.forEach(enhanceWithin);
+      }
+    }).observe(document.body, { childList: true, subtree: true });
+    document.addEventListener("mousedown", (e) => {
+      if (open && !open.menu.contains(e.target) && !open.btn.contains(e.target)) closeMenu();
+    });
+    window.addEventListener("resize", closeMenu);
+    window.addEventListener("scroll", (e) => {
+      if (open && !open.menu.contains(e.target)) closeMenu();
+    }, true);
   }
 
   // src/core/actions.js

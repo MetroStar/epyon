@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Every dropdown uses a themed menu instead of the browser's native popup (`web/src/core/select.js`); the native `<select>` stays as the hidden source of truth, and `data-native` opts out.
+- Project cards show a vulnerability snapshot (Critical/High/Medium/Low totals plus per-repo and third-party counts from each latest scan).
 - Projects page and the New/Edit project modal use the app theme (card styling, spacing, wider modal) instead of unstyled elements.
 - Overview has one search box for vulnerabilities (ID or package) and SBOM packages, with a scope selector (default Everything) and a single "Include earlier scans" option.
 - Overview shows a Projects count, and still lists every application (including those inside a project) in the flat list below the project sections.

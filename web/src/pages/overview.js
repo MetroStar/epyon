@@ -21,9 +21,7 @@ export async function renderOverview() {
     ]);
     const projects = (projectData.projects || projectData || []).filter(p => Array.isArray(p.repos));
     const byName = new Map(allApps.map(a => [a.name, a]));
-    const grouped = new Set(projects.flatMap(p => p.repos.map(r => r.app)));
-    // Applications that belong to a project are shown inside it, not again below
-    const apps = projects.length ? allApps.filter(a => !grouped.has(a.name)) : allApps;
+    const apps = allApps;
 
     const continuous  = apps.filter(a => a.monitored);
     const evaluation  = apps.filter(a => !a.monitored);
@@ -81,12 +79,12 @@ export async function renderOverview() {
            </div>` : ''}`
         : `<div class="section">
              <div class="section-title">
-               ${projects.length ? 'Other applications' : 'Applications'}
+               ${projects.length ? 'All applications' : 'Applications'}
                <button class="btn btn-sm" ${act('navigate', '#/applications')}>View all →</button>
              </div>
              <div class="app-grid">${apps.map(makeCard).join('')}</div>
            </div>`
-      : projects.length ? '' : `<div class="section">
+      : `<div class="section">
            <div class="section-title">Applications</div>
            ${emptyState(
              'No applications yet',
@@ -99,6 +97,10 @@ export async function renderOverview() {
       ${pageHeader(`Security Overview`, { actions: `<button class="btn btn-primary" ${act('navigate', '#/new-scan')}>+ Run Scan</button>` })}
 
       <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-value">${esc(projects.length)}</div>
+          <div class="stat-label">Projects</div>
+        </div>
         <div class="stat-card">
           <div class="stat-value">${esc(stats.total_applications)}</div>
           <div class="stat-label">Applications</div>

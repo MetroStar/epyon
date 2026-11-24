@@ -6766,7 +6766,7 @@ epyon install-workflow</pre>
       const continuous = apps.filter((a) => a.monitored);
       const evaluation = apps.filter((a) => !a.monitored);
       const anyMonitored = continuous.length > 0;
-      const makeCard = (app, chips = true) => `
+      const makeCard = (app) => `
           <div class="app-card status-${esc(app.status)}"
                ${act("navigate", `#/applications/${encodeURIComponent(app.name)}`)}>
             <div class="app-card-header">
@@ -6776,14 +6776,14 @@ epyon install-workflow</pre>
             <div class="app-card-meta">
               ${app.last_scanned ? `Last scanned: ${fmtDate(app.last_scanned)} · ${esc(app.scan_type || "full")}` : "Never scanned"}
             </div>
-            ${chips ? `<div class="severity-row">${gateBadge(app)} ${sevBadgeRow(app)}</div>` : ""}
+            <div class="severity-row">${gateBadge(app)} ${sevBadgeRow(app)}</div>
             <div class="app-card-footer">
               ${app.scan_count} scan${app.scan_count !== 1 ? "s" : ""} total
             </div>
           </div>`;
       const ROLE = { frontend: "Front end", backend: "Back end", infra: "Infrastructure", other: "Other" };
       const projectSections = projects.map((p) => {
-        const cards = p.repos.map((r) => byName.get(r.app) ? `<div class="project-card-cell" style="display:flex;flex-direction:column">${makeCard(byName.get(r.app), false).replace('class="app-card ', 'style="flex:1" class="app-card ')}<div style="font-size:12px;color:var(--text-muted);margin:4px 0 0 4px">${esc(ROLE[r.role] || r.role)}</div></div>` : "").join("");
+        const cards = p.repos.map((r) => byName.get(r.app) ? `<div class="project-card-cell" style="display:flex;flex-direction:column">${makeCard(byName.get(r.app)).replace('class="app-card ', 'style="flex:1" class="app-card ')}<div style="font-size:12px;color:var(--text-muted);margin:4px 0 0 4px">${esc(ROLE[r.role] || r.role)}</div></div>` : "").join("");
         return `<div class="section">
         <div class="section-title">
           <span>▣ ${esc(p.name)} <span style="font-size:12px;font-weight:400;color:var(--text-muted)">(${p.repos.length} repositor${p.repos.length === 1 ? "y" : "ies"})</span></span>

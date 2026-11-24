@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Overview project sections show the same vulnerability snapshot beside their repo cards.
 - Overview has a "Show first" selector (Projects or Applications) to choose which section comes first; the choice is remembered in the browser.
 - Overview project sections have a "Project properties" button beside "STIG roll-up" that opens the edit-project modal in place.
+- Projects page uses the same project sections as the Overview (shared `appCard` and `projectSectionHtml`): repo cards beside the vulnerability snapshot, with Project properties, Delete and STIG roll-up actions.
 - Project cards show a vulnerability snapshot (Critical/High/Medium/Low totals plus per-repo and third-party counts from each latest scan).
 - Projects page and the New/Edit project modal use the app theme (card styling, spacing, wider modal) instead of unstyled elements.
 - Overview has one search box for vulnerabilities (ID or package) and SBOM packages, with a scope selector (default Everything) and a single "Include earlier scans" option.

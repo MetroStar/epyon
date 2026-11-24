@@ -227,20 +227,6 @@ html .finding-drawer:focus-visible { outline: none; }
 }
 
 /* Projects page and modal */
-.project-list { display: flex; flex-direction: column; gap: 16px; }
-.project-card {
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-left: 3px solid var(--accent);
-  border-radius: var(--radius-lg);
-  padding: 20px 24px;
-}
-.project-card-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
-.project-card-title { min-width: 0; flex: 1 1 260px; }
-.project-card-title h3 { margin: 0; font-size: 16px; font-weight: 600; color: var(--text); }
-.project-card-title p { margin: 6px 0 0; color: var(--text-muted); font-size: 13px; line-height: 1.5; }
-.project-card-meta { margin-top: 6px; font-size: 12px; color: var(--text-dim); }
-.project-card-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .project-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border); }
 .project-chips + .project-chips { margin-top: 12px; padding-top: 0; border-top: 0; }
 .project-chips-label { flex: 0 0 150px; font-size: 11px; font-weight: 600; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em; }
@@ -345,3 +331,7 @@ html .finding-drawer:focus-visible { outline: none; }
 .overview-order-apps > [data-group="projects"] { order: 2; }
 .overview-order { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
 .overview-order .field-label { margin: 0; }
+.project-card-cell { display: flex; flex-direction: column; }
+.project-card-cell > .app-card { flex: 1; }
+.project-card-role { font-size: 12px; color: var(--text-muted); margin: 4px 0 0 4px; }
+.project-card-meta { margin-top: 6px; font-size: 12px; color: var(--text-dim); }

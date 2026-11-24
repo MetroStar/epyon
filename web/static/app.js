@@ -4904,6 +4904,7 @@ epyon install-workflow</pre>
     discardProjectPartEdit: () => discardProjectPartEdit,
     editProject: () => editProject,
     openProjectControl: () => openProjectControl,
+    projectSectionHtml: () => projectSectionHtml,
     removeProjectExternalRow: () => removeProjectExternalRow,
     removeProjectRepoRow: () => removeProjectRepoRow,
     renderProjectStig: () => renderProjectStig,
@@ -4913,6 +4914,23 @@ epyon install-workflow</pre>
     sevTiles: () => sevTiles,
     showProjectModal: () => showProjectModal
   });
+
+  // src/components/app-card.js
+  var appCard = (app) => `
+          <div class="app-card status-${esc(app.status)}"
+               ${act("navigate", `#/applications/${encodeURIComponent(app.name)}`)}>
+            <div class="app-card-header">
+              <span class="app-name">${esc(app.name)}</span>
+              ${statusBadge(app.status)}
+            </div>
+            <div class="app-card-meta">
+              ${app.last_scanned ? `Last scanned: ${fmtDate(app.last_scanned)} · ${esc(app.scan_type || "full")}` : "Never scanned"}
+            </div>
+            <div class="severity-row">${gateBadge(app)} ${sevBadgeRow(app)}</div>
+            <div class="app-card-footer">
+              ${app.scan_count} scan${app.scan_count !== 1 ? "s" : ""} total
+            </div>
+          </div>`;
 
   // src/components/drawers/finding.js
   var finding_exports = {};
@@ -5474,6 +5492,22 @@ epyon install-workflow</pre>
       ${list}
     </div>`;
   }
+  var ROLE_TEXT = { frontend: "Front end", backend: "Back end", infra: "Infrastructure", other: "Other" };
+  function projectSectionHtml(p, byName, actionsHtml) {
+    const role = (r) => `<div class="project-card-role">${esc(ROLE_TEXT[r.role] || r.role)}</div>`;
+    const cards = p.repos.map((r) => byName[r.app] ? `<div class="project-card-cell">${appCard(byName[r.app])}${role(r)}</div>` : `<div class="project-card-cell"><div class="app-card status-unknown"><div class="app-card-header"><span class="app-name">${esc(r.app)}</span></div><div class="app-card-meta">Never scanned</div></div>${role(r)}</div>`).join("");
+    return `<div class="section">
+    <div class="section-title">
+      <span>▣ ${esc(p.name)} <span style="font-size:12px;font-weight:400;color:var(--text-muted)">(${p.repos.length} repositor${p.repos.length === 1 ? "y" : "ies"}${p.jira_project_key ? ` · Jira ${esc(p.jira_project_key)}` : ""})</span></span>
+      <span style="display:flex;gap:8px">${actionsHtml}</span>
+    </div>
+    ${p.description ? `<div style="font-size:13px;color:var(--text-muted);margin-bottom:10px">${esc(p.description)}</div>` : ""}
+    <div class="project-card-body">
+      <div class="app-grid">${cards || '<div style="color:var(--text-muted)">No repositories yet.</div>'}</div>
+      ${cveSnapshot(p, byName)}
+    </div>
+  </div>`;
+  }
   var externalBadges = (list) => list && list.length ? `
       <div class="project-chips">
         <span class="project-chips-label">Third-party, no STIG</span>
@@ -5493,40 +5527,16 @@ epyon install-workflow</pre>
       page.innerHTML = errBanner(e.message);
       return;
     }
-    const cards = _projects.map((p) => `
-    <div class="project-card">
-      <div class="project-card-head">
-        <div class="project-card-title">
-          <h3>${esc(p.name)}</h3>
-          ${p.description ? `<p>${esc(p.description)}</p>` : ""}
-          ${p.jira_project_key ? `<div class="project-card-meta">Jira board: ${esc(p.jira_project_key)}</div>` : ""}
-        </div>
-        <div class="project-card-actions">
-          <a class="btn btn-primary" href="#/projects/${encodeURIComponent(p.id)}">STIG roll-up</a>
-          <button class="btn" ${act("showProjectModal", p.id)}>Edit</button>
-          <button class="btn btn-danger" ${act("deleteProject", p.id)}>Delete</button>
-        </div>
-      </div>
-      <div class="project-card-body">
-      <div class="project-card-members">
-      <div class="project-chips">
-        <span class="project-chips-label">Repositories</span>
-        ${p.repos.length ? p.repos.map((r) => `
-          <a class="app-type-badge evaluation" href="#/applications/${encodeURIComponent(r.app)}" style="text-decoration:none">
-            ${esc(r.app)} <span style="opacity:.7">· ${esc(ROLE_LABEL[r.role] || r.role)}</span>
-          </a>`).join("") : '<span class="project-card-meta">No repositories yet</span>'}
-      </div>
-      ${externalBadges(p.external)}
-      </div>
-      ${cveSnapshot(p)}
-      </div>
-    </div>`).join("");
+    const cards = _projects.map((p) => projectSectionHtml(p, _appsByName, `
+            <button class="btn btn-sm" ${act("showProjectModal", p.id)}>Project properties</button>
+            <button class="btn btn-sm btn-danger" ${act("deleteProject", p.id)}>Delete</button>
+            <a class="btn btn-sm btn-primary" href="#/projects/${encodeURIComponent(p.id)}">STIG roll-up →</a>`)).join("");
     page.innerHTML = `
     ${pageHeader("Projects", {
       subtitle: "A project is one system (ATO boundary) made of several repositories built by different teams.",
       actions: `<button class="btn btn-primary" ${act("showProjectModal", "")}>New project</button>`
     })}
-    ${_projects.length ? `<div class="project-list">${cards}</div>` : emptyState(
+    ${_projects.length ? cards : emptyState(
       "No projects yet",
       "Create a project to group repositories that together satisfy one system's STIG controls."
     )}`;
@@ -6799,39 +6809,11 @@ epyon install-workflow</pre>
       const continuous = apps.filter((a) => a.monitored);
       const evaluation = apps.filter((a) => !a.monitored);
       const anyMonitored = continuous.length > 0;
-      const makeCard = (app) => `
-          <div class="app-card status-${esc(app.status)}"
-               ${act("navigate", `#/applications/${encodeURIComponent(app.name)}`)}>
-            <div class="app-card-header">
-              <span class="app-name">${esc(app.name)}</span>
-              ${statusBadge(app.status)}
-            </div>
-            <div class="app-card-meta">
-              ${app.last_scanned ? `Last scanned: ${fmtDate(app.last_scanned)} · ${esc(app.scan_type || "full")}` : "Never scanned"}
-            </div>
-            <div class="severity-row">${gateBadge(app)} ${sevBadgeRow(app)}</div>
-            <div class="app-card-footer">
-              ${app.scan_count} scan${app.scan_count !== 1 ? "s" : ""} total
-            </div>
-          </div>`;
-      const ROLE = { frontend: "Front end", backend: "Back end", infra: "Infrastructure", other: "Other" };
-      const projectSections = projects.map((p) => {
-        const cards = p.repos.map((r) => byName.get(r.app) ? `<div class="project-card-cell" style="display:flex;flex-direction:column">${makeCard(byName.get(r.app)).replace('class="app-card ', 'style="flex:1" class="app-card ')}<div style="font-size:12px;color:var(--text-muted);margin:4px 0 0 4px">${esc(ROLE[r.role] || r.role)}</div></div>` : "").join("");
-        return `<div class="section">
-        <div class="section-title">
-          <span>▣ ${esc(p.name)} <span style="font-size:12px;font-weight:400;color:var(--text-muted)">(${p.repos.length} repositor${p.repos.length === 1 ? "y" : "ies"})</span></span>
-          <span style="display:flex;gap:8px">
+      const makeCard = appCard;
+      const appsByName = Object.fromEntries(apps.map((a) => [a.name, a]));
+      const projectSections = projects.map((p) => projectSectionHtml(p, appsByName, `
             <button class="btn btn-sm" ${act("editProject", p.id)}>Project properties</button>
-            <button class="btn btn-sm" ${act("navigate", `#/projects/${encodeURIComponent(p.id)}`)}>STIG roll-up →</button>
-          </span>
-        </div>
-        ${p.description ? `<div style="font-size:13px;color:var(--text-muted);margin-bottom:10px">${esc(p.description)}</div>` : ""}
-        <div class="project-card-body">
-          <div class="app-grid">${cards || '<div style="color:var(--text-muted)">No scanned repositories yet.</div>'}</div>
-          ${cveSnapshot(p, Object.fromEntries(apps.map((a) => [a.name, a])))}
-        </div>
-      </div>`;
-      }).join("");
+            <button class="btn btn-sm" ${act("navigate", `#/projects/${encodeURIComponent(p.id)}`)}>STIG roll-up →</button>`)).join("");
       const appList = apps.length ? anyMonitored ? `<div class="section">
              <div class="section-title">
                <span>● Continuously Monitored <span style="font-size:12px;font-weight:400;color:var(--text-muted)">(${continuous.length})</span></span>

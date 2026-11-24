@@ -1,6 +1,7 @@
 import { emptyState, errBanner, loading, pageHeader } from '../components/layout.js';
 import { confirmDialog, toast } from '../components/feedback.js';
 import { sevBadgeRow } from '../components/badges.js';
+import { appCard } from '../components/app-card.js';
 import { api } from '../lib/api.js';
 import { esc, act, actOn, ARG, ucFirst } from '../lib/format.js';
 import { closeFindingDetail } from '../components/drawers/finding.js';
@@ -47,6 +48,27 @@ export function cveSnapshot(p, byName = _appsByName) {
     </div>`;
 }
 
+const ROLE_TEXT = { frontend: 'Front end', backend: 'Back end', infra: 'Infrastructure', other: 'Other' };
+
+// One project as an Overview-style section: repo cards beside the vulnerability snapshot.
+export function projectSectionHtml(p, byName, actionsHtml) {
+  const role = r => `<div class="project-card-role">${esc(ROLE_TEXT[r.role] || r.role)}</div>`;
+  const cards = p.repos.map(r => byName[r.app]
+    ? `<div class="project-card-cell">${appCard(byName[r.app])}${role(r)}</div>`
+    : `<div class="project-card-cell"><div class="app-card status-unknown"><div class="app-card-header"><span class="app-name">${esc(r.app)}</span></div><div class="app-card-meta">Never scanned</div></div>${role(r)}</div>`).join('');
+  return `<div class="section">
+    <div class="section-title">
+      <span>▣ ${esc(p.name)} <span style="font-size:12px;font-weight:400;color:var(--text-muted)">(${p.repos.length} repositor${p.repos.length === 1 ? 'y' : 'ies'}${p.jira_project_key ? ` · Jira ${esc(p.jira_project_key)}` : ''})</span></span>
+      <span style="display:flex;gap:8px">${actionsHtml}</span>
+    </div>
+    ${p.description ? `<div style="font-size:13px;color:var(--text-muted);margin-bottom:10px">${esc(p.description)}</div>` : ''}
+    <div class="project-card-body">
+      <div class="app-grid">${cards || '<div style="color:var(--text-muted)">No repositories yet.</div>'}</div>
+      ${cveSnapshot(p, byName)}
+    </div>
+  </div>`;
+}
+
 const externalBadges = list => (list && list.length) ? `
       <div class="project-chips">
         <span class="project-chips-label">Third-party, no STIG</span>
@@ -68,41 +90,17 @@ export async function renderProjects() {
     return;
   }
 
-  const cards = _projects.map(p => `
-    <div class="project-card">
-      <div class="project-card-head">
-        <div class="project-card-title">
-          <h3>${esc(p.name)}</h3>
-          ${p.description ? `<p>${esc(p.description)}</p>` : ''}
-          ${p.jira_project_key ? `<div class="project-card-meta">Jira board: ${esc(p.jira_project_key)}</div>` : ''}
-        </div>
-        <div class="project-card-actions">
-          <a class="btn btn-primary" href="#/projects/${encodeURIComponent(p.id)}">STIG roll-up</a>
-          <button class="btn" ${act('showProjectModal', p.id)}>Edit</button>
-          <button class="btn btn-danger" ${act('deleteProject', p.id)}>Delete</button>
-        </div>
-      </div>
-      <div class="project-card-body">
-      <div class="project-card-members">
-      <div class="project-chips">
-        <span class="project-chips-label">Repositories</span>
-        ${p.repos.length ? p.repos.map(r => `
-          <a class="app-type-badge evaluation" href="#/applications/${encodeURIComponent(r.app)}" style="text-decoration:none">
-            ${esc(r.app)} <span style="opacity:.7">· ${esc(ROLE_LABEL[r.role] || r.role)}</span>
-          </a>`).join('') : '<span class="project-card-meta">No repositories yet</span>'}
-      </div>
-      ${externalBadges(p.external)}
-      </div>
-      ${cveSnapshot(p)}
-      </div>
-    </div>`).join('');
+  const cards = _projects.map(p => projectSectionHtml(p, _appsByName, `
+            <button class="btn btn-sm" ${act('showProjectModal', p.id)}>Project properties</button>
+            <button class="btn btn-sm btn-danger" ${act('deleteProject', p.id)}>Delete</button>
+            <a class="btn btn-sm btn-primary" href="#/projects/${encodeURIComponent(p.id)}">STIG roll-up →</a>`)).join('');
 
   page.innerHTML = `
     ${pageHeader('Projects', {
       subtitle: 'A project is one system (ATO boundary) made of several repositories built by different teams.',
       actions: `<button class="btn btn-primary" ${act('showProjectModal', '')}>New project</button>`,
     })}
-    ${_projects.length ? `<div class="project-list">${cards}</div>` : emptyState('No projects yet',
+    ${_projects.length ? cards : emptyState('No projects yet',
       'Create a project to group repositories that together satisfy one system\'s STIG controls.')}`;
 }
 

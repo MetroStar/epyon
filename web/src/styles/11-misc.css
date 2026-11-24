@@ -16,6 +16,10 @@
 #cache-clear svg { display: block; }
 
 /* Cross-application CVE search (Overview) */
+.search-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start; margin-bottom: 24px; }
+.search-row > .section { margin-bottom: 0; }
+.search-row .cve-search-input { flex: 1 1 140px; min-width: 120px; }
+@media (max-width: 900px) { .search-row { grid-template-columns: 1fr; } }
 .cve-search-form { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 12px; }
 .cve-search-input { flex: 1 1 280px; min-width: 220px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-card, var(--bg)); color: var(--text); }
 .cve-search-select { padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg-card, var(--bg)); color: var(--text); }

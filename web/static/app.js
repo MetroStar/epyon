@@ -5883,8 +5883,10 @@ epyon install-workflow</pre>
         </div>
       </div>
 
-      ${buildCveSearchSection()}
-      ${buildSbomSearchSection()}
+      <div class="search-row">
+        ${buildCveSearchSection()}
+        ${buildSbomSearchSection()}
+      </div>
       ${buildOverviewExecSection()}
       ${buildOverviewTechSection()}
       ${buildOverviewIssoSection()}

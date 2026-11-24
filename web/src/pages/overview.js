@@ -127,8 +127,10 @@ export async function renderOverview() {
         </div>
       </div>
 
-      ${buildCveSearchSection()}
-      ${buildSbomSearchSection()}
+      <div class="search-row">
+        ${buildCveSearchSection()}
+        ${buildSbomSearchSection()}
+      </div>
       ${buildOverviewExecSection()}
       ${buildOverviewTechSection()}
       ${buildOverviewIssoSection()}

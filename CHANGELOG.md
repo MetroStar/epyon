@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.83.0] - 2026-11-24
+
+### Added
+
+- Every dropdown uses a themed menu instead of the browser's native popup (`web/src/core/select.js`); the native `<select>` stays as the hidden source of truth, and `data-native` opts out.
+- Overview project sections show the same vulnerability snapshot beside their repo cards.
+- Overview has a "Show first" selector (Projects or Applications) to choose which section comes first; the choice is remembered in the browser.
+- Overview project sections have a "Project properties" button beside "STIG roll-up" that opens the edit-project modal in place.
+- Projects page uses the same project sections as the Overview (shared `appCard` and `projectSectionHtml`): repo cards beside the vulnerability snapshot, with Project properties, Delete and STIG roll-up actions.
+- Project cards show a vulnerability snapshot (Critical/High/Medium/Low totals plus per-repo and third-party counts from each latest scan).
+- Projects page and the New/Edit project modal use the app theme (card styling, spacing, wider modal) instead of unstyled elements.
+- Overview has one search box for vulnerabilities (ID or package) and SBOM packages, with a scope selector (default Everything) and a single "Include earlier scans" option.
+- Overview shows a Projects count, and still lists every application (including those inside a project) in the flat list below the project sections.
+- Projects can list third-party components (name, role, note) that have no repository or STIG, such as an identity provider or vendor API. They appear on the Projects page and the roll-up page, and never affect the roll-up.
+
 ## [3.82.2] - 2026-11-24
 
 ### Changed

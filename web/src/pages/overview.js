@@ -1,14 +1,28 @@
-import { gateBadge, sevBadgeRow, statusBadge } from '../components/badges.js';
 import { toast } from '../components/feedback.js';
 import { emptyState, errBanner, loading, pageHeader } from '../components/layout.js';
 import { api } from '../lib/api.js';
 import { upperAlnumInput, upperInput } from '../core/ui-helpers.js';
 import { esc, fmtDate, ucFirst, act, actOn, ARG } from '../lib/format.js';
+import { projectSectionHtml } from './projects.js';
+import { appCard } from '../components/app-card.js';
 import { renderApplications } from './applications.js';
 import { buildOverviewExecSection, buildOverviewIssoSection, buildOverviewTechSection } from '../components/summaries.js';
 
 // Globals that other modules put on window (see index.js):
 /* global setActive */
+
+const ORDER_KEY = 'epyon.overview.order';
+
+function overviewOrder() {
+  try { return localStorage.getItem(ORDER_KEY) === 'apps' ? 'apps' : 'projects'; } catch { return 'projects'; }
+}
+
+export function overviewOrderChanged(value) {
+  const order = value === 'apps' ? 'apps' : 'projects';
+  try { localStorage.setItem(ORDER_KEY, order); } catch { /* storage unavailable: order applies to this view only */ }
+  const box = document.getElementById('overview-sections');
+  if (box) box.className = `overview-sections overview-order-${order}`;
+}
 
 export async function renderOverview() {
   setActive('overview');
@@ -21,48 +35,19 @@ export async function renderOverview() {
     ]);
     const projects = (projectData.projects || projectData || []).filter(p => Array.isArray(p.repos));
     const byName = new Map(allApps.map(a => [a.name, a]));
-    const grouped = new Set(projects.flatMap(p => p.repos.map(r => r.app)));
-    // Applications that belong to a project are shown inside it, not again below
-    const apps = projects.length ? allApps.filter(a => !grouped.has(a.name)) : allApps;
+    const apps = allApps;
 
     const continuous  = apps.filter(a => a.monitored);
     const evaluation  = apps.filter(a => !a.monitored);
     const anyMonitored = continuous.length > 0;
 
-    const makeCard = app => `
-          <div class="app-card status-${esc(app.status)}"
-               ${act('navigate', `#/applications/${encodeURIComponent(app.name)}`)}>
-            <div class="app-card-header">
-              <span class="app-name">${esc(app.name)}</span>
-              ${statusBadge(app.status)}
-            </div>
-            <div class="app-card-meta">
-              ${app.last_scanned
-                ? `Last scanned: ${fmtDate(app.last_scanned)} · ${esc(app.scan_type || 'full')}`
-                : 'Never scanned'}
-            </div>
-            <div class="severity-row">${gateBadge(app)} ${sevBadgeRow(app)}</div>
-            <div class="app-card-footer">
-              ${app.scan_count} scan${app.scan_count !== 1 ? 's' : ''} total
-            </div>
-          </div>`;
+    const makeCard = appCard;
+    const appsByName = Object.fromEntries(apps.map(a => [a.name, a]));
+    const projectSections = projects.map(p => projectSectionHtml(p, appsByName, `
+            <button class="btn btn-sm" ${act('editProject', p.id)}>Project properties</button>
+            <button class="btn btn-sm" ${act('navigate', `#/projects/${encodeURIComponent(p.id)}`)}>STIG roll-up →</button>`)).join('');
 
-    const ROLE = { frontend: 'Front end', backend: 'Back end', infra: 'Infrastructure', other: 'Other' };
-    const projectSections = projects.map(p => {
-      const cards = p.repos.map(r => byName.get(r.app)
-        ? `<div>${makeCard(byName.get(r.app))}<div style="font-size:12px;color:var(--text-muted);margin:4px 0 0 4px">${esc(ROLE[r.role] || r.role)}</div></div>`
-        : '').join('');
-      return `<div class="section">
-        <div class="section-title">
-          <span>▣ ${esc(p.name)} <span style="font-size:12px;font-weight:400;color:var(--text-muted)">(${p.repos.length} repositor${p.repos.length === 1 ? 'y' : 'ies'})</span></span>
-          <button class="btn btn-sm" ${act('navigate', `#/projects/${encodeURIComponent(p.id)}`)}>STIG roll-up →</button>
-        </div>
-        ${p.description ? `<div style="font-size:13px;color:var(--text-muted);margin-bottom:10px">${esc(p.description)}</div>` : ''}
-        <div class="app-grid">${cards || '<div style="color:var(--text-muted)">No scanned repositories yet.</div>'}</div>
-      </div>`;
-    }).join('');
-
-    const appSections = projectSections + (apps.length
+    const appList = (apps.length
       ? anyMonitored
         ? `<div class="section">
              <div class="section-title">
@@ -80,12 +65,12 @@ export async function renderOverview() {
            </div>` : ''}`
         : `<div class="section">
              <div class="section-title">
-               ${projects.length ? 'Other applications' : 'Applications'}
+               ${projects.length ? 'All applications' : 'Applications'}
                <button class="btn btn-sm" ${act('navigate', '#/applications')}>View all →</button>
              </div>
              <div class="app-grid">${apps.map(makeCard).join('')}</div>
            </div>`
-      : projects.length ? '' : `<div class="section">
+      : `<div class="section">
            <div class="section-title">Applications</div>
            ${emptyState(
              'No applications yet',
@@ -93,11 +78,29 @@ export async function renderOverview() {
              `<button class="btn btn-primary" ${act('navigate', '#/new-scan')} style="margin-top:16px">▶ Run First Scan</button>`,
            )}
          </div>`);
+    const order = overviewOrder();
+    const appSections = `
+      ${projects.length && apps.length ? `
+      <div class="overview-order">
+        <label class="field-label" for="overview-order-select">Show first</label>
+        <select id="overview-order-select" ${actOn('change', 'overviewOrderChanged', ARG.value)}>
+          <option value="projects"${order === 'projects' ? ' selected' : ''}>Projects</option>
+          <option value="apps"${order === 'apps' ? ' selected' : ''}>Applications</option>
+        </select>
+      </div>` : ''}
+      <div id="overview-sections" class="overview-sections overview-order-${order}">
+        <div data-group="projects">${projectSections}</div>
+        <div data-group="apps">${appList}</div>
+      </div>`;
 
     page.innerHTML = `
       ${pageHeader(`Security Overview`, { actions: `<button class="btn btn-primary" ${act('navigate', '#/new-scan')}>+ Run Scan</button>` })}
 
       <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-value">${esc(projects.length)}</div>
+          <div class="stat-label">Projects</div>
+        </div>
         <div class="stat-card">
           <div class="stat-value">${esc(stats.total_applications)}</div>
           <div class="stat-label">Applications</div>
@@ -124,8 +127,7 @@ export async function renderOverview() {
         </div>
       </div>
 
-      ${buildCveSearchSection()}
-      ${buildSbomSearchSection()}
+      ${buildSearchSection()}
       ${buildOverviewExecSection()}
       ${buildOverviewTechSection()}
       ${buildOverviewIssoSection()}
@@ -136,17 +138,19 @@ export async function renderOverview() {
   }
 }
 
-// ── Cross-application CVE search (Overview) ───────────────────
-export function buildCveSearchSection() {
+// ── Cross-application search (Overview): vulnerabilities and SBOM packages ──
+export function buildSearchSection() {
   return `
     <div class="section cve-search">
-      <div class="section-title">Search a CVE across applications</div>
-      <form class="cve-search-form" ${actOn('submit', 'cveSearchRun', ARG.event)}>
+      <div class="section-title">Search across applications</div>
+      <form class="cve-search-form" ${actOn('submit', 'searchRun', ARG.event)}>
         <input id="cve-search-q" class="cve-search-input" type="text" minlength="3" maxlength="100"
-               placeholder="CVE-2024-12345, GHSA-…, or package name" autocomplete="off" required>
-        <select id="cve-search-field" class="cve-search-select" aria-label="Search by">
-          <option value="id">CVE / advisory ID</option>
-          <option value="package">Package name</option>
+               placeholder="CVE-2024-12345, GHSA-…, package name or purl" autocomplete="off" required>
+        <select id="cve-search-field" class="cve-search-select" aria-label="Search in">
+          <option value="all">Everything</option>
+          <option value="id">Vulnerability ID (CVE / advisory)</option>
+          <option value="package">Vulnerable package</option>
+          <option value="sbom">SBOM packages</option>
         </select>
         <label class="cve-search-history">
           <input id="cve-search-history" type="checkbox"> Include earlier scans
@@ -154,34 +158,35 @@ export function buildCveSearchSection() {
         <button class="btn btn-primary" type="submit">Search</button>
       </form>
       <div id="cve-search-results"></div>
-    </div>`;
-}
-
-// ── Cross-application SBOM package search (Overview) ──────────
-export function buildSbomSearchSection() {
-  return `
-    <div class="section cve-search">
-      <div class="section-title">Search SBOMs across applications</div>
-      <form class="cve-search-form" ${actOn('submit', 'sbomSearchRun', ARG.event)}>
-        <input id="sbom-search-q" class="cve-search-input" type="text" minlength="3" maxlength="100"
-               placeholder="Package name (e.g. log4j, lodash) or purl" autocomplete="off" required>
-        <label class="cve-search-history">
-          <input id="sbom-search-history" type="checkbox"> Include earlier scans
-        </label>
-        <button class="btn btn-primary" type="submit">Search</button>
-      </form>
       <div id="sbom-search-results"></div>
     </div>`;
 }
 
+export function searchRun(ev) {
+  if (ev) ev.preventDefault();
+  const q = document.getElementById('cve-search-q').value.trim();
+  const scope = document.getElementById('cve-search-field').value;
+  const history = document.getElementById('cve-search-history').checked;
+  const wantVuln = scope !== 'sbom';
+  const wantSbom = scope === 'all' || scope === 'sbom';
+  const field = scope === 'all' ? (/^(CVE|GHSA)-/i.test(q) ? 'id' : 'package') : scope;
+  for (const [id, show] of [['cve', wantVuln], ['sbom', wantSbom]]) {
+    if (!show) {
+      document.getElementById(`${id}-search-results`).innerHTML = '';
+      if (id === 'cve') _cveSearchSeq++; else _sbomSearchSeq++;
+    }
+  }
+  return Promise.all([
+    wantVuln ? cveSearchRun(q, field, history) : null,
+    wantSbom ? sbomSearchRun(q, history) : null,
+  ]);
+}
+
 let _sbomSearchSeq = 0;
 
-export async function sbomSearchRun(ev) {
-  if (ev) ev.preventDefault();
+async function sbomSearchRun(q, history) {
   const out = document.getElementById('sbom-search-results');
   if (!out) return;
-  const q = document.getElementById('sbom-search-q').value.trim();
-  const history = document.getElementById('sbom-search-history').checked;
   const seq = ++_sbomSearchSeq;
   out.innerHTML = loading();
   try {
@@ -225,13 +230,9 @@ let _cveSearchSeq = 0;
 
 let _cveBulk = { data: null, selected: new Set() };
 
-export async function cveSearchRun(ev) {
-  if (ev) ev.preventDefault();
+async function cveSearchRun(q, field, history) {
   const out = document.getElementById('cve-search-results');
   if (!out) return;
-  const q = document.getElementById('cve-search-q').value.trim();
-  const field = document.getElementById('cve-search-field').value;
-  const history = document.getElementById('cve-search-history').checked;
   const seq = ++_cveSearchSeq;
   out.innerHTML = loading();
   try {
@@ -392,7 +393,7 @@ export function cveBulkTriagedByChanged(value) { _cveBulk.modal.triagedBy = valu
 
 export function cveBulkDone() {
   cveBulkClose();
-  cveSearchRun();
+  searchRun();
 }
 
 export function cveBulkKeyTyped(input) {

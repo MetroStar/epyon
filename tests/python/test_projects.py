@@ -161,3 +161,14 @@ def test_release_label_uses_version_and_release_not_conventions_version():
     out = subprocess.run([sys.executable, str(xccdf.parents[2] / "scripts" / "shell" / "parse-stig-cklb.py"), str(xccdf)],
                          capture_output=True, text=True)
     assert '"release_info": "V6R5, 30 Sep 2026"' in out.stdout, out.stderr[-300:]
+
+
+def test_external_components_are_stored_validated_and_do_not_affect_rollup(client):
+    created = client.post("/api/projects", json=_body(external=[{"name": "Keycloak", "role": "infra", "note": "IdP"}]))
+    assert created.status_code == 201 and created.json()["external"] == [{"name": "Keycloak", "role": "infra", "note": "IdP"}]
+    pid = created.json()["id"]
+    assert client.get(f"/api/projects/{pid}/stig-rollup").json()["external"][0]["name"] == "Keycloak"
+    assert client.post("/api/projects", json=_body(name="Two", external=[{"name": "", "role": "infra"}])).status_code == 400
+    dup = [{"name": "X"}, {"name": "x"}]
+    assert client.post("/api/projects", json=_body(name="Three", external=dup)).status_code == 400
+    assert client.post("/api/projects", json=_body(name="Four", external=[{"name": "X", "role": "bogus"}])).status_code == 400

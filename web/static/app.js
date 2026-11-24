@@ -4868,8 +4868,7 @@ epyon install-workflow</pre>
   // src/pages/overview.js
   var overview_exports = {};
   __export(overview_exports, {
-    buildCveSearchSection: () => buildCveSearchSection,
-    buildSbomSearchSection: () => buildSbomSearchSection,
+    buildSearchSection: () => buildSearchSection,
     cveBulkClose: () => cveBulkClose,
     cveBulkConfirm: () => cveBulkConfirm,
     cveBulkDone: () => cveBulkDone,
@@ -4887,12 +4886,1011 @@ epyon install-workflow</pre>
     cveBulkToggleAll: () => cveBulkToggleAll,
     cveBulkTriagedByChanged: () => cveBulkTriagedByChanged,
     cveSearchResultsHtml: () => cveSearchResultsHtml,
-    cveSearchRun: () => cveSearchRun,
+    overviewOrderChanged: () => overviewOrderChanged,
     renderOverview: () => renderOverview,
     sbomSearchResultsHtml: () => sbomSearchResultsHtml,
-    sbomSearchRun: () => sbomSearchRun,
+    searchRun: () => searchRun,
     toggleMonitored: () => toggleMonitored2
   });
+
+  // src/pages/projects.js
+  var projects_exports = {};
+  __export(projects_exports, {
+    addProjectExternalRow: () => addProjectExternalRow,
+    addProjectRepoRow: () => addProjectRepoRow,
+    closeProjectModal: () => closeProjectModal,
+    cveSnapshot: () => cveSnapshot,
+    deleteProject: () => deleteProject,
+    discardProjectPartEdit: () => discardProjectPartEdit,
+    editProject: () => editProject,
+    openProjectControl: () => openProjectControl,
+    projectSectionHtml: () => projectSectionHtml,
+    removeProjectExternalRow: () => removeProjectExternalRow,
+    removeProjectRepoRow: () => removeProjectRepoRow,
+    renderProjectStig: () => renderProjectStig,
+    renderProjects: () => renderProjects,
+    saveProject: () => saveProject,
+    saveProjectPartEdit: () => saveProjectPartEdit,
+    sevTiles: () => sevTiles,
+    showProjectModal: () => showProjectModal
+  });
+
+  // src/components/app-card.js
+  var appCard = (app) => `
+          <div class="app-card status-${esc(app.status)}"
+               ${act("navigate", `#/applications/${encodeURIComponent(app.name)}`)}>
+            <div class="app-card-header">
+              <span class="app-name">${esc(app.name)}</span>
+              ${statusBadge(app.status)}
+            </div>
+            <div class="app-card-meta">
+              ${app.last_scanned ? `Last scanned: ${fmtDate(app.last_scanned)} · ${esc(app.scan_type || "full")}` : "Never scanned"}
+            </div>
+            <div class="severity-row">${gateBadge(app)} ${sevBadgeRow(app)}</div>
+            <div class="app-card-footer">
+              ${app.scan_count} scan${app.scan_count !== 1 ? "s" : ""} total
+            </div>
+          </div>`;
+
+  // src/components/drawers/finding.js
+  var finding_exports = {};
+  __export(finding_exports, {
+    closeFindingDetail: () => closeFindingDetail2,
+    openFindingDetail: () => openFindingDetail2
+  });
+  function openFindingDetail2(id) {
+    const f = _findingsRegistry.get(id);
+    if (!f) return;
+    closeFindingDetail2();
+    const sev = f.severity || "unknown";
+    const fid = f.id || "—";
+    const tool = f.tool || "—";
+    const title = f.title || f.description || "—";
+    const desc = f.description || "";
+    const pkg = f.package || f.component || "";
+    const ver = f.version || "";
+    const fixed = f.fixed_version || "";
+    const target = f.target || f.file || "";
+    const line = f.line ? Array.isArray(f.line) && f.line.length === 2 ? f.line[0] === f.line[1] ? String(f.line[0]) : `${f.line[0]}-${f.line[1]}` : String(f.line) : "";
+    const refs = f.references || [];
+    const cisaKev = f.cisa_kev === true;
+    const cvssScore = f.nvd_cvss_v3_score != null ? f.nvd_cvss_v3_score : null;
+    const cvssSev = f.nvd_cvss_v3_severity || "";
+    const nvdUrl = f.nvd_url || (fid.startsWith("CVE-") ? `https://nvd.nist.gov/vuln/detail/${fid}` : "");
+    const cveSource = f.cve_source || "";
+    const sourceIcons = {
+      "GHSA": { icon: "🛡️", label: "GitHub Advisory", color: "#6e40aa" },
+      "NVD": { icon: "🏛️", label: "NIST NVD", color: "#1e40af" },
+      "OSV": { icon: "🔓", label: "OSV", color: "#059669" },
+      "Alpine": { icon: "🏔️", label: "Alpine SecDB", color: "#0d9488" },
+      "Debian": { icon: "🌀", label: "Debian Security", color: "#a90e3c" },
+      "Ubuntu": { icon: "🟠", label: "Ubuntu Security", color: "#e95420" },
+      "RHEL": { icon: "🎩", label: "Red Hat", color: "#cc0000" },
+      "Trivy": { icon: "🔍", label: "Trivy DB", color: "#1f2937" },
+      "Grype": { icon: "🦑", label: "Grype DB", color: "#475569" }
+    };
+    const sourceInfo = sourceIcons[cveSource] || null;
+    const sourceBadge = sourceInfo ? `<span style="display:inline-flex;align-items:center;gap:4px;background:${sourceInfo.color};color:#fff;font-size:12px;font-weight:600;padding:2px 6px;border-radius:3px;margin-left:6px" title="Source: ${sourceInfo.label}">
+         ${sourceInfo.icon} ${cveSource}
+       </span>` : "";
+    const idDisplay = fid.startsWith("CVE-") ? `<a class="finding-detail-id-link"
+          href="${esc(nvdUrl || "https://nvd.nist.gov/vuln/detail/" + esc(fid))}"
+          target="_blank" rel="noopener noreferrer">
+         ${esc(fid)}
+         <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+           <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+           <polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
+         </svg>
+       </a>${cisaKev ? ' <span style="background:var(--critical-bg);color:var(--critical);font-size:12px;font-weight:700;padding:2px 7px;border-radius:4px" title="CISA Known Exploited Vulnerability">KEV</span>' : ""}${sourceBadge}` : `<code>${esc(fid)}</code>${sourceBadge}`;
+    const refsHtml = refs.length ? `<div class="finding-detail-section">
+         <div class="finding-detail-label">References</div>
+         <div class="finding-detail-refs">
+           ${refs.map((r) => `<a href="${esc(r)}" target="_blank" rel="noopener noreferrer">${esc(r)}</a>`).join("")}
+         </div>
+       </div>` : "";
+    const descSection = desc && desc !== title ? `<div class="finding-detail-section">
+         <div class="finding-detail-label">Description</div>
+         <div class="finding-detail-desc">${esc(desc)}</div>
+       </div>` : "";
+    const overlay = document.createElement("div");
+    overlay.className = "finding-drawer-overlay";
+    overlay.id = "finding-drawer-overlay";
+    overlay.addEventListener("click", closeFindingDetail2);
+    const drawer = document.createElement("div");
+    drawer.className = "finding-drawer";
+    drawer.id = "finding-drawer";
+    drawer.setAttribute("role", "dialog");
+    drawer.setAttribute("aria-modal", "true");
+    drawer.setAttribute("aria-label", "Finding details");
+    drawer.innerHTML = `
+    <div class="finding-drawer-header">
+      <div class="finding-drawer-title">
+        <h2>${esc(title)}</h2>
+        <div class="finding-drawer-badges">
+          <span class="sev-badge ${esc(sev)}">${ucFirst(sev)}</span>
+          <span class="tool-tag">${esc(tool)}</span>
+          ${idDisplay}
+        </div>
+      </div>
+      <button class="finding-drawer-close" ${act("closeFindingDetail")} aria-label="Close">✕</button>
+    </div>
+    <div class="finding-drawer-body">
+
+      <div class="finding-detail-grid">
+        <div class="finding-detail-section">
+          <div class="finding-detail-label">Package / Component</div>
+          <div class="finding-detail-value">${pkg ? `<code>${esc(pkg)}</code>` : '<span style="color:var(--text-dim)">—</span>'}</div>
+        </div>
+        <div class="finding-detail-section">
+          <div class="finding-detail-label">Version</div>
+          <div class="finding-detail-value">${ver ? `<code>${esc(ver)}</code>` : '<span style="color:var(--text-dim)">—</span>'}</div>
+        </div>
+        <div class="finding-detail-section">
+          <div class="finding-detail-label">Fix Available</div>
+          <div class="finding-detail-value">${fixed ? `<code style="color:var(--clean)">${esc(fixed)}</code>` : '<span style="color:var(--text-dim)">None known</span>'}</div>
+        </div>
+        <div class="finding-detail-section">
+          <div class="finding-detail-label">Severity</div>
+          <div class="finding-detail-value"><span class="sev-badge ${esc(sev)}">${ucFirst(sev)}</span>${cvssScore != null ? ` <span style="color:var(--text-muted);font-size:12px">CVSS ${esc(String(cvssScore))}${cvssSev ? " · " + esc(cvssSev) : ""}</span>` : ""}</div>
+        </div>
+      </div>
+
+      ${cisaKev ? `
+        <div style="background:var(--critical-bg);border:1px solid var(--critical-bg);border-radius:var(--radius);padding:10px 14px;margin-bottom:12px;display:flex;align-items:center;gap:10px">
+          <span style="font-size:16px">⚠️</span>
+          <div>
+            <div style="color:var(--critical);font-weight:600;font-size:13px">CISA Known Exploited Vulnerability (KEV)</div>
+            <div style="color:var(--critical);font-size:12px;margin-top:2px">This CVE is actively exploited in the wild. CISA mandates remediation for federal agencies. Treat as highest priority.</div>
+          </div>
+        </div>` : ""}
+
+      ${target ? `
+        <div class="finding-detail-section">
+          <div class="finding-detail-label">${findingSource(f) === "container" ? "Container Image" : "File Path"}</div>
+          <div class="finding-detail-value"><code style="word-break:break-all">${esc(target)}</code>${line ? ` <span style="color:var(--text-muted);font-size:12px">line ${esc(line)}</span>` : ""}</div>
+        </div>` : ""}
+
+      ${descSection}
+
+      ${refsHtml}
+
+      ${_scanIdFromHash() && !window.__SCAN__ ? `
+      <div id="finding-jira-section" style="margin-top:16px;border-top:1px solid var(--border);padding-top:14px">
+        <button id="finding-jira-btn" class="btn btn-primary" ${act("jiraQuickAdd", id)}>Add to Jira</button>
+        <div id="finding-jira-status" style="font-size:12px;margin-top:8px"></div>
+      </div>` : ""}
+
+      <div id="finding-fix-section" style="margin-top:16px;border-top:1px solid var(--border);padding-top:14px">
+        <button id="finding-fix-btn" class="btn btn-ai" ${act("fetchFindingFix", id)}>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+          Suggest Fix with AI
+        </button>
+        <div id="finding-fix-result"></div>
+      </div>
+
+    </div>`;
+    document.body.appendChild(overlay);
+    document.body.appendChild(drawer);
+  }
+  function closeFindingDetail2() {
+    const overlay = document.getElementById("finding-drawer-overlay");
+    const drawer = document.getElementById("finding-drawer");
+    overlay?.remove();
+    drawer?.remove();
+  }
+  window.fetchFindingFix = async function(fid) {
+    const f = _findingsRegistry.get(fid);
+    if (!f) return;
+    const btn = document.getElementById("finding-fix-btn");
+    const result = document.getElementById("finding-fix-result");
+    if (!btn || !result) return;
+    btn.disabled = true;
+    btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="animation:spin 1s linear infinite"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-.08-4.04"/></svg> Generating…`;
+    const payload = {
+      id: f.id || void 0,
+      title: f.title || f.description || void 0,
+      description: f.description !== f.title ? f.description : void 0,
+      tool: f.tool || void 0,
+      severity: f.severity || void 0,
+      package: f.package || f.component || void 0,
+      version: f.version || void 0,
+      fixed_version: f.fixed_version || void 0,
+      target: f.target || void 0,
+      references: (f.references || []).slice(0, 3)
+    };
+    Object.keys(payload).forEach((k) => payload[k] === void 0 && delete payload[k]);
+    try {
+      const data = await api.getFindingFix(payload);
+      btn.style.display = "none";
+      result.innerHTML = `
+      <div style="margin-top:12px;background:rgba(99,102,241,0.06);border:1px solid rgba(99,102,241,0.25);border-radius:var(--radius);padding:14px 16px;font-size:13px">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;color:var(--purple);font-size:12px;font-weight:600">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+          AI-SUGGESTED FIX
+        </div>
+        <div class="ai-fix-body">${renderMarkdown(data.fix || "")}</div>
+      </div>`;
+    } catch (err) {
+      btn.disabled = false;
+      btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> Suggest Fix with AI`;
+      result.innerHTML = `<div style="margin-top:8px;color:var(--critical);font-size:12px">${esc(err.message)}</div>`;
+    }
+  };
+
+  // src/components/drawers/stig.js
+  var stig_exports2 = {};
+  __export(stig_exports2, {
+    _registerStigDetail: () => _registerStigDetail2,
+    _stigDetailRegistry: () => _stigDetailRegistry,
+    closeStigDetail: () => closeStigDetail,
+    openStigDetail: () => openStigDetail,
+    openStigViewerDetail: () => openStigViewerDetail2,
+    stigRecordHtml: () => stigRecordHtml,
+    stigStatusLabel: () => stigStatusLabel2
+  });
+  function openStigViewerDetail2(regKey) {
+    const entry = _stigRegistry.get(regKey);
+    if (!entry) return;
+    closeFindingDetail2();
+    const { c, scanId } = entry;
+    const STATUS_CLASS_MAP = {
+      "Open": "stig-status-open",
+      "Not a Finding": "stig-status-pass",
+      "Not Applicable": "stig-status-na",
+      "Not Reviewed": "stig-status-nr"
+    };
+    const conf = c.confidence ?? 0;
+    const confCls = conf >= 90 ? "conf-high" : conf >= 70 ? "conf-med" : conf >= 40 ? "conf-low" : "conf-none";
+    const confLbl = conf >= 90 ? "High" : conf >= 70 ? "Medium" : conf >= 40 ? "Low" : "Insufficient";
+    const sev = (c.severity || "unknown").toLowerCase();
+    const statusCls = STATUS_CLASS_MAP[c.status] || "stig-status-nr";
+    const overrideOptions = ["Not a Finding", "Not Applicable", "Open", "Not Reviewed"].map((s) => `<option value="${esc(s)}"${c.status === s ? " selected" : ""}>${esc(s)}</option>`).join("");
+    const overlay = document.createElement("div");
+    overlay.className = "finding-drawer-overlay";
+    overlay.id = "finding-drawer-overlay";
+    overlay.addEventListener("click", closeFindingDetail2);
+    const drawer = document.createElement("div");
+    drawer.className = "finding-drawer";
+    drawer.id = "finding-drawer";
+    drawer.setAttribute("role", "dialog");
+    drawer.setAttribute("aria-modal", "true");
+    drawer.setAttribute("aria-label", "STIG control details");
+    drawer.innerHTML = `
+    <div class="finding-drawer-header">
+      <div class="finding-drawer-title">
+        <h2>${esc(c.title || c.vuln_id)}</h2>
+        <div class="finding-drawer-badges">
+          <span class="stig-sev stig-sev-${esc(sev)}">${ucFirst(sev)}</span>
+          <span class="${esc(statusCls)}">${esc(c.status)}</span>
+          ${c.locked_by_human ? '<span class="stig-lock-badge" title="Manually locked by reviewer">🔒</span>' : ""}
+          <code style="font-size:12px">${esc(c.group_id || c.vuln_id)}</code>
+        </div>
+      </div>
+      <button class="finding-drawer-close" ${act("closeFindingDetail")} aria-label="Close">✕</button>
+    </div>
+    <div class="finding-drawer-body">
+
+      <div class="finding-detail-grid">
+        <div class="finding-detail-section">
+          <div class="finding-detail-label">Vuln ID</div>
+          <div class="finding-detail-value"><code>${esc(c.vuln_id)}</code></div>
+        </div>
+        <div class="finding-detail-section">
+          <div class="finding-detail-label">Rule ID</div>
+          <div class="finding-detail-value"><code>${esc(c.rule_id || "—")}</code></div>
+        </div>
+        <div class="finding-detail-section">
+          <div class="finding-detail-label">Group ID</div>
+          <div class="finding-detail-value"><code>${esc(c.group_id || "—")}</code></div>
+        </div>
+        <div class="finding-detail-section">
+          <div class="finding-detail-label">Confidence</div>
+          <div class="finding-detail-value">
+            <span class="stig-confidence ${confCls}">${conf}/100</span>
+            <span style="margin-left:6px;font-size:12px;color:var(--text-muted)">${confLbl}</span>
+          </div>
+        </div>
+        <div class="finding-detail-section">
+          <div class="finding-detail-label">STIG</div>
+          <div class="finding-detail-value" style="font-size:12px;color:var(--text-muted)">${esc(c._stig_name || "—")}</div>
+        </div>
+      </div>
+
+      ${stigRecordHtml(c)}
+
+      <div class="finding-detail-section" style="margin-top:12px">
+        <div class="finding-detail-label">Check Content</div>
+        <div class="stig-check" style="margin-top:6px">${esc(c.check_content || "—").replace(/\n/g, "<br>")}</div>
+      </div>
+
+      <div class="finding-detail-section" style="margin-top:12px">
+        <div class="finding-detail-label">Remediation</div>
+        <div style="margin-top:6px;font-size:13px;line-height:1.6;color:var(--text)">${esc(c.fix_text || "—").replace(/\n/g, "<br>")}</div>
+      </div>
+
+      <div style="margin-top:20px;border-top:1px solid var(--border);padding-top:16px">
+        <button class="btn btn-primary" ${act("openStigJiraModal", scanId, [regKey])}>Add to Jira</button>
+        <span id="stig-jira-drawer-status" style="margin-left:10px;font-size:12px"></span>
+      </div>
+
+      <div class="stig-override-section" style="margin-top:20px;border-top:1px solid var(--border);padding-top:16px">
+        <div class="finding-detail-label" style="margin-bottom:10px">
+          Assessment (editable)
+          ${c.locked_by_human ? '<span class="stig-lock-badge" style="margin-left:8px">🔒 Edited by a reviewer</span>' : ""}
+        </div>
+        <p style="font-size:12px;color:var(--text-muted);margin:0 0 10px">
+          Your edit is saved for this application and used by every later scan, which checks it against the
+          code. It is never overwritten. Check Content and Remediation come from the STIG and cannot be edited.
+        </p>
+        <div class="stig-override-form">
+          <div class="stig-override-row">
+            <label class="stig-override-label">Status</label>
+            <select class="stig-override-select" id="sd-status-${esc(c.vuln_id)}-${esc(c._slug)}">
+              ${overrideOptions}
+            </select>
+          </div>
+          <div class="stig-override-row">
+            <label class="stig-override-label">Evidence</label>
+            <textarea class="stig-override-textarea" id="sd-evid-${esc(c.vuln_id)}-${esc(c._slug)}"
+              placeholder="Cite the file and value that satisfy (or fail) this control" rows="6" maxlength="20000">${esc(c.evidence || "")}</textarea>
+          </div>
+          <div class="stig-override-row">
+            <label class="stig-override-label">Justification (optional)</label>
+            <textarea class="stig-override-textarea" id="sd-just-${esc(c.vuln_id)}-${esc(c._slug)}"
+              placeholder="Why you are changing this assessment" rows="3" maxlength="20000">${esc(c.justification || "")}</textarea>
+          </div>
+          <div class="stig-override-row stig-override-actions">
+            <button class="btn btn-sm btn-success"
+              ${act("saveStigOverrideFromDrawer", scanId, c._slug, c.vuln_id)}
+            >Save edit</button>
+            ${c.locked_by_human ? `<button class="btn btn-sm"
+                  ${act("clearStigOverrideFromDrawer", scanId, c._slug, c.vuln_id)}
+                >Discard edit</button>` : ""}
+            <span class="stig-override-msg" id="sd-msg-${esc(c.vuln_id)}-${esc(c._slug)}"></span>
+          </div>
+        </div>
+      </div>
+
+    </div>`;
+    document.body.appendChild(overlay);
+    document.body.appendChild(drawer);
+  }
+  function stigStatusLabel2(status) {
+    return status === "Not Reviewed" ? "Evidence needed" : status || "";
+  }
+  function stigRecordHtml(c) {
+    const rows = Array.isArray(c.changes_that_may_affect) ? c.changes_that_may_affect : [];
+    const auto = c.automation_recommendation;
+    const notes = [];
+    if (c.evidence_needed) notes.push(["Evidence needed", c.evidence_needed]);
+    if (c.verification_note) notes.push(["Verification", c.verification_note]);
+    if (c.reopened_reason) notes.push(["Re-opened", c.reopened_reason]);
+    if (c.downgraded_from) notes.push(["Downgraded from", c.downgraded_from]);
+    if (c.needs_owner_confirmation) notes.push(["Owner", "Needs owner confirmation"]);
+    (c.citation_failures || []).forEach((f) => notes.push(["Citation failed", f]));
+    if (!rows.length && !auto && !notes.length) return "";
+    const noteHtml = notes.map(([k, v]) => `<div style="font-size:13px;margin-top:4px"><strong>${esc(k)}:</strong> ${esc(v)}</div>`).join("");
+    const tableHtml = rows.length ? `
+    <table class="stig-table" style="margin-top:6px">
+      <thead><tr><th scope="col">Change</th><th scope="col">Where</th><th scope="col">Re-check</th></tr></thead>
+      <tbody>${rows.map((r) => `<tr><td>${esc(r.change)}</td><td>${esc(r.where)}</td><td>${esc(r.recheck)}</td></tr>`).join("")}</tbody>
+    </table>` : "";
+    const autoHtml = auto ? `
+    <div style="margin-top:8px;font-size:13px">
+      <strong>Automation:</strong> ${esc(auto.check || "—")}
+      ${auto.data_source ? `<div>Data source: ${esc(auto.data_source)}</div>` : ""}
+      ${auto.pass_fail_rule ? `<div>Pass/fail: ${esc(auto.pass_fail_rule)}</div>` : ""}
+      ${auto.where_it_runs ? `<div>Runs in: ${esc(auto.where_it_runs)}</div>` : ""}
+    </div>` : "";
+    return `
+      <div class="finding-detail-section" style="margin-top:12px">
+        <div class="finding-detail-label">Review Record</div>
+        ${noteHtml}${rows.length ? '<div class="finding-detail-label" style="margin-top:10px">Changes that may affect this control</div>' : ""}${tableHtml}${autoHtml}
+      </div>`;
+  }
+  function closeStigDetail() {
+    closeFindingDetail2();
+  }
+  window.saveStigOverrideFromDrawer = async (sid, slug, vulnId) => {
+    const statusEl = document.getElementById(`sd-status-${vulnId}-${slug}`);
+    const evidEl = document.getElementById(`sd-evid-${vulnId}-${slug}`);
+    const justEl = document.getElementById(`sd-just-${vulnId}-${slug}`);
+    const msgEl = document.getElementById(`sd-msg-${vulnId}-${slug}`);
+    if (!statusEl || !evidEl || !justEl || !msgEl) return;
+    const evidence = evidEl.value.trim();
+    const justification = justEl.value.trim();
+    msgEl.textContent = "Saving…";
+    msgEl.className = "stig-override-msg";
+    try {
+      const res = await fetch(`/api/scans/${encodeURIComponent(sid)}/stig-override`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ slug, vuln_id: vulnId, status: statusEl.value, evidence, justification })
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: res.statusText }));
+        throw new Error(err.detail || res.statusText);
+      }
+      msgEl.textContent = "✓ Saved";
+      msgEl.className = "stig-override-msg stig-override-ok";
+      const newStatus = statusEl.value;
+      setTimeout(() => {
+        closeFindingDetail2();
+        const patch = { status: newStatus, confidence: 95, locked_by_human: true, evidence, justification };
+        if (!window.updateStigControlInPlace?.(slug, vulnId, patch)) renderStigViewer(sid);
+      }, 800);
+    } catch (e) {
+      msgEl.textContent = `Error: ${e.message}`;
+      msgEl.className = "stig-override-msg stig-override-err";
+    }
+  };
+  window.clearStigOverrideFromDrawer = async (sid, slug, vulnId) => {
+    const msgEl = document.getElementById(`sd-msg-${vulnId}-${slug}`);
+    if (msgEl) {
+      msgEl.textContent = "Clearing…";
+      msgEl.className = "stig-override-msg";
+    }
+    try {
+      const res = await fetch(`/api/scans/${encodeURIComponent(sid)}/stig-override`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ slug, vuln_id: vulnId, status: "Open", justification: "", clear_lock: true })
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: res.statusText }));
+        throw new Error(err.detail || res.statusText);
+      }
+      if (msgEl) {
+        msgEl.textContent = "✓ Edit discarded";
+        msgEl.className = "stig-override-msg stig-override-ok";
+      }
+      setTimeout(() => {
+        closeFindingDetail2();
+        const patch = { status: "Open", confidence: 0, locked_by_human: false, evidence: "", justification: "" };
+        if (!window.updateStigControlInPlace?.(slug, vulnId, patch)) renderStigViewer(sid);
+      }, 800);
+    } catch (e) {
+      if (msgEl) {
+        msgEl.textContent = `Error: ${e.message}`;
+        msgEl.className = "stig-override-msg stig-override-err";
+      }
+    }
+  };
+  var _stigDetailNextId = 0;
+  var _stigDetailRegistry = /* @__PURE__ */ new Map();
+  function _registerStigDetail2(c) {
+    const id = _stigDetailNextId++;
+    _stigDetailRegistry.set(id, c);
+    return id;
+  }
+  function openStigDetail(id) {
+    const c = _stigDetailRegistry.get(id);
+    if (!c) return;
+    closeFindingDetail2();
+    const _SC = { "Open": "open", "Not a Finding": "not-a-finding", "Not Applicable": "na", "Not Reviewed": "not-reviewed" };
+    const _SA = { "Open": "Open", "Not a Finding": "Pass", "Not Applicable": "N/A", "Not Reviewed": "Evid." };
+    const sev = c.severity || "unknown";
+    const sevCls = sev.toLowerCase();
+    const latCls = _SC[c.latest_status] || "not-reviewed";
+    const latLbl = _SA[c.latest_status] || c.latest_status || "—";
+    const tl = [...c.timeline || []].sort((a, b) => b.date.localeCompare(a.date));
+    const timelineRows = tl.map((t, idx) => {
+      const cls = _SC[t.status] || "not-reviewed";
+      const lbl = _SA[t.status] || t.status;
+      const evidence = t.evidence || "No evidence provided.";
+      const confidence = t.confidence != null ? `${t.confidence}%` : "—";
+      const prevEvidence = idx < tl.length - 1 ? tl[idx + 1].evidence || "" : "";
+      const evidenceChanged = prevEvidence && evidence && prevEvidence !== evidence && t.status !== "Not Reviewed";
+      const changeClass = evidenceChanged ? ' style="background:var(--bg-hover)"' : "";
+      const changeIcon = evidenceChanged ? ' <span style="color:var(--accent);font-size:12px" title="Evidence changed from previous scan">🔄 Changed</span>' : "";
+      return `<tr${changeClass}>
+      <td style="padding:8px 12px;font-size:12px;color:var(--text-muted);white-space:nowrap;vertical-align:top">${esc(t.date.slice(0, 10))}</td>
+      <td style="padding:8px 12px;vertical-align:top"><span class="stig-status-chip ${cls}">${esc(lbl)}</span>${changeIcon}</td>
+      <td style="padding:8px 12px;font-size:12px;color:var(--text-muted);text-align:center;vertical-align:top">${confidence}</td>
+      <td style="padding:8px 12px;font-size:12px;color:var(--text);line-height:1.5;vertical-align:top">${esc(evidence).replace(/\n/g, "<br>")}</td>
+    </tr>`;
+    }).join("");
+    const overlay = document.createElement("div");
+    overlay.className = "finding-drawer-overlay";
+    overlay.id = "finding-drawer-overlay";
+    overlay.addEventListener("click", closeFindingDetail2);
+    const drawer = document.createElement("div");
+    drawer.className = "finding-drawer";
+    drawer.id = "finding-drawer";
+    drawer.setAttribute("role", "dialog");
+    drawer.setAttribute("aria-modal", "true");
+    drawer.setAttribute("aria-label", "STIG control details");
+    drawer.innerHTML = `
+    <div class="finding-drawer-header">
+      <div class="finding-drawer-title">
+        <h2>${esc(c.title || c.vuln_id || "—")}</h2>
+        <div class="finding-drawer-badges">
+          <span class="sev-badge ${esc(sevCls)}">${ucFirst(sev)}</span>
+          <span class="tool-tag">STIG</span>
+          <code>${esc(c.vuln_id)}</code>
+        </div>
+      </div>
+      <button class="finding-drawer-close" ${act("closeFindingDetail")} aria-label="Close">✕</button>
+    </div>
+    <div class="finding-drawer-body">
+      <div class="finding-detail-grid">
+        <div class="finding-detail-section">
+          <div class="finding-detail-label">Current Status</div>
+          <div class="finding-detail-value"><span class="stig-status-chip ${latCls}">${esc(latLbl)}</span></div>
+        </div>
+        <div class="finding-detail-section">
+          <div class="finding-detail-label">Benchmark</div>
+          <div class="finding-detail-value">${c.stig_name ? `<code style="font-size:12px">${esc(c.stig_name)}</code>` : '<span style="color:var(--text-dim)">—</span>'}</div>
+        </div>
+        <div class="finding-detail-section">
+          <div class="finding-detail-label">First Open</div>
+          <div class="finding-detail-value">${c.first_open ? esc(c.first_open.slice(0, 10)) : '<span style="color:var(--text-dim)">—</span>'}</div>
+        </div>
+        <div class="finding-detail-section">
+          <div class="finding-detail-label">First Closed</div>
+          <div class="finding-detail-value">${c.first_closed ? esc(c.first_closed.slice(0, 10)) : '<span style="color:var(--text-dim)">—</span>'}</div>
+        </div>
+        <div class="finding-detail-section">
+          <div class="finding-detail-label">MTTR</div>
+          <div class="finding-detail-value">${c.mttr_days != null ? `<strong>${c.mttr_days} days</strong>` : '<span style="color:var(--text-dim)">—</span>'}</div>
+        </div>
+      </div>
+      ${tl.length ? `
+      <div class="finding-detail-section">
+        <div class="finding-detail-label">Scan History</div>
+        <div class="finding-detail-desc" style="padding:0;background:none;border:1px solid var(--border-muted);border-radius:var(--radius);overflow:hidden">
+          <table style="width:100%;border-collapse:collapse">
+            <thead>
+              <tr style="background:var(--bg-hover);border-bottom:1px solid var(--border)">
+                <th scope="col" style="padding:8px 12px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);text-align:left;width:100px">Date</th>
+                <th scope="col" style="padding:8px 12px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);text-align:left;width:140px">Status</th>
+                <th scope="col" style="padding:8px 12px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);text-align:center;width:80px">Confidence</th>
+                <th scope="col" style="padding:8px 12px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);text-align:left">Evidence / Reasoning</th>
+              </tr>
+            </thead>
+            <tbody>${timelineRows}</tbody>
+          </table>
+        </div>
+      </div>` : ""}
+    </div>`;
+    document.body.appendChild(overlay);
+    document.body.appendChild(drawer);
+  }
+
+  // src/pages/projects.js
+  var _projects = [];
+  var _roles = ["frontend", "backend", "infra", "other"];
+  var _appNames = [];
+  var _appsByName = {};
+  var ROLE_LABEL = { frontend: "Frontend", backend: "Backend", infra: "Infrastructure", other: "Other" };
+  var SEVS = ["critical", "high", "medium", "low"];
+  var sevTiles = (c) => SEVS.map((k) => `
+    <span class="project-sev ${k}${c[k] ? "" : " zero"}" title="${ucFirst(k)}">
+      <span class="num">${Number(c[k]) || 0}</span><span class="lbl">${ucFirst(k)}</span></span>`).join("");
+  function cveSnapshot(p, byName = _appsByName) {
+    const members = [...p.repos, ...(p.external || []).map((x) => ({ app: x.name, role: x.role, third: true }))];
+    const totals = { critical: 0, high: 0, medium: 0, low: 0 };
+    const rows = members.map((m) => {
+      const a = byName[m.app];
+      if (a) SEVS.forEach((k) => {
+        totals[k] += Number(a[k]) || 0;
+      });
+      return { ...m, scan: a };
+    });
+    const scanned = rows.filter((r) => r.scan).length;
+    const tiles = sevTiles(totals);
+    const list = rows.map((r) => `
+    <div class="project-cve-row">
+      <a href="#/applications/${encodeURIComponent(r.app)}">${esc(r.app)}${r.third ? ' <span class="project-card-meta">(third-party)</span>' : ""}</a>
+      <span>${r.scan ? sevBadgeRow(r.scan) : '<span class="project-card-meta">Not scanned</span>'}</span>
+    </div>`).join("");
+    return `
+    <div class="project-snapshot">
+      <div class="project-chips-label">Vulnerabilities <span style="text-transform:none;letter-spacing:0;font-weight:400">· latest scan of ${scanned}/${rows.length}</span></div>
+      <div class="project-sev-row">${tiles}</div>
+      ${list}
+    </div>`;
+  }
+  var ROLE_TEXT = { frontend: "Front end", backend: "Back end", infra: "Infrastructure", other: "Other" };
+  function projectSectionHtml(p, byName, actionsHtml) {
+    const role = (r) => `<div class="project-card-role">${esc(ROLE_TEXT[r.role] || r.role)}</div>`;
+    const cards = p.repos.map((r) => byName[r.app] ? `<div class="project-card-cell">${appCard(byName[r.app])}${role(r)}</div>` : `<div class="project-card-cell"><div class="app-card status-unknown"><div class="app-card-header"><span class="app-name">${esc(r.app)}</span></div><div class="app-card-meta">Never scanned</div></div>${role(r)}</div>`).join("");
+    return `<div class="section">
+    <div class="section-title">
+      <span>▣ ${esc(p.name)} <span style="font-size:12px;font-weight:400;color:var(--text-muted)">(${p.repos.length} repositor${p.repos.length === 1 ? "y" : "ies"}${p.jira_project_key ? ` · Jira ${esc(p.jira_project_key)}` : ""})</span></span>
+      <span style="display:flex;gap:8px">${actionsHtml}</span>
+    </div>
+    ${p.description ? `<div style="font-size:13px;color:var(--text-muted);margin-bottom:10px">${esc(p.description)}</div>` : ""}
+    <div class="project-card-body">
+      <div class="app-grid">${cards || '<div style="color:var(--text-muted)">No repositories yet.</div>'}</div>
+      ${cveSnapshot(p, byName)}
+    </div>
+  </div>`;
+  }
+  var externalBadges = (list) => list && list.length ? `
+      <div class="project-chips">
+        <span class="project-chips-label">Third-party, no STIG</span>
+        ${list.map((x) => `<span class="app-type-badge" title="${esc(x.note || "")}">${esc(x.name)} <span style="opacity:.7">· ${esc(ROLE_LABEL[x.role] || x.role)}</span></span>`).join("")}
+      </div>` : "";
+  async function renderProjects() {
+    setActive("projects");
+    const page = document.getElementById("page");
+    page.innerHTML = loading();
+    try {
+      const [data, apps] = await Promise.all([api.getProjects(), api.getApplications()]);
+      _projects = data.projects || [];
+      _roles = data.roles || _roles;
+      _appNames = (apps || []).map((a) => a.name).sort();
+      _appsByName = Object.fromEntries((apps || []).map((a) => [a.name, a]));
+    } catch (e) {
+      page.innerHTML = errBanner(e.message);
+      return;
+    }
+    const cards = _projects.map((p) => projectSectionHtml(p, _appsByName, `
+            <button class="btn btn-sm" ${act("showProjectModal", p.id)}>Project properties</button>
+            <button class="btn btn-sm btn-danger" ${act("deleteProject", p.id)}>Delete</button>
+            <a class="btn btn-sm btn-primary" href="#/projects/${encodeURIComponent(p.id)}">STIG roll-up →</a>`)).join("");
+    page.innerHTML = `
+    ${pageHeader("Projects", {
+      subtitle: "A project is one system (ATO boundary) made of several repositories built by different teams.",
+      actions: `<button class="btn btn-primary" ${act("showProjectModal", "")}>New project</button>`
+    })}
+    ${_projects.length ? cards : emptyState(
+      "No projects yet",
+      "Create a project to group repositories that together satisfy one system's STIG controls."
+    )}`;
+  }
+  var STATUS_CLASS = {
+    "Open": "stig-status-open",
+    "Not a Finding": "stig-status-pass",
+    "Not Applicable": "stig-status-na",
+    "Not Reviewed": "stig-status-nr"
+  };
+  var statusLabel = (s) => s === "Not Reviewed" ? "Evidence needed" : s === "missing" ? "Not scanned" : s;
+  var statusPill = (s) => `<span class="${esc(STATUS_CLASS[s] || "stig-status-nr")}">${esc(statusLabel(s))}</span>`;
+  var svNumber = (c) => (String(c.rule_id || "").match(/^SV-\d+/i) || [c.group_id || c.vuln_id])[0];
+  var _rollupControls = /* @__PURE__ */ new Map();
+  var _projectId = null;
+  var STATUSES = ["Not a Finding", "Not Applicable", "Open", "Not Reviewed"];
+  var _rollupSeq = 0;
+  function partEditHtml(p, d, idx, seq) {
+    const id = (k) => `pd-${k}-${seq}-${idx}`;
+    const regKey = `project__${seq}__${idx}`;
+    _stigRegistry.set(regKey, { c: { ...d, vuln_id: d.vuln_id, _slug: p.slug }, scanId: p.scan_id });
+    return `
+      <div style="margin-top:12px;border-top:1px solid var(--border);padding-top:10px">
+        <div class="finding-detail-label" style="margin-bottom:8px">Assessment (editable)</div>
+        <div class="stig-override-form">
+          <div class="stig-override-row"><label class="stig-override-label">Status</label>
+            <select class="stig-override-select" id="${id("status")}">
+              ${STATUSES.map((st) => `<option value="${esc(st)}"${p.status === st ? " selected" : ""}>${esc(st)}</option>`).join("")}
+            </select></div>
+          <div class="stig-override-row"><label class="stig-override-label">Evidence</label>
+            <textarea class="stig-override-textarea" id="${id("evid")}" rows="5" maxlength="20000"
+              placeholder="Cite the file and value that satisfy (or fail) this control">${esc(p.evidence || "")}</textarea></div>
+          <div class="stig-override-row"><label class="stig-override-label">Justification (optional)</label>
+            <textarea class="stig-override-textarea" id="${id("just")}" rows="2" maxlength="20000">${esc(d.justification || "")}</textarea></div>
+          <div class="stig-override-row stig-override-actions">
+            <button class="btn btn-sm btn-success" ${act("saveProjectPartEdit", p.scan_id, p.slug, d.vuln_id, seq, idx)}>Save edit</button>
+            ${d.locked_by_human ? `<button class="btn btn-sm" ${act("discardProjectPartEdit", p.scan_id, p.slug, d.vuln_id)}>Discard edit</button>` : ""}
+            <button class="btn btn-sm btn-primary" ${act("openStigJiraModal", p.scan_id, [regKey])}>Add to Jira</button>
+            <span class="stig-override-msg" id="${id("msg")}"></span>
+          </div>
+        </div>
+      </div>`;
+  }
+  async function patchOverride(scanId, body, msgEl, done) {
+    msgEl.textContent = "Saving…";
+    msgEl.className = "stig-override-msg";
+    try {
+      const res = await fetch(`/api/scans/${encodeURIComponent(scanId)}/stig-override`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: res.statusText }));
+        throw new Error(err.detail || res.statusText);
+      }
+      msgEl.textContent = "✓ Saved";
+      msgEl.className = "stig-override-msg stig-override-ok";
+      await done();
+    } catch (e) {
+      msgEl.textContent = `Error: ${e.message}`;
+      msgEl.className = "stig-override-msg stig-override-err";
+    }
+  }
+  async function refreshAndReopen(slug, vulnId) {
+    closeFindingDetail2();
+    await renderProjectStig(_projectId);
+    for (const [key, { c, st }] of _rollupControls) {
+      if (c.vuln_id === vulnId && c.parts.some((p) => p.slug === slug)) {
+        openProjectControl(key);
+        break;
+      }
+    }
+  }
+  function saveProjectPartEdit(scanId, slug, vulnId, seq, idx) {
+    const el = (k) => document.getElementById(`pd-${k}-${seq}-${idx}`);
+    return patchOverride(scanId, {
+      slug,
+      vuln_id: vulnId,
+      status: el("status").value,
+      evidence: el("evid").value.trim(),
+      justification: el("just").value.trim()
+    }, el("msg"), () => refreshAndReopen(slug, vulnId));
+  }
+  function discardProjectPartEdit(scanId, slug, vulnId) {
+    const msg = document.querySelector(".finding-drawer .stig-override-msg") || document.createElement("span");
+    return patchOverride(
+      scanId,
+      { slug, vuln_id: vulnId, status: "Open", justification: "", clear_lock: true },
+      msg,
+      () => refreshAndReopen(slug, vulnId)
+    );
+  }
+  function openProjectControl(key) {
+    const entry = _rollupControls.get(key);
+    if (!entry) return;
+    const { c, st } = entry;
+    closeFindingDetail2();
+    const sev = (c.severity || "unknown").toLowerCase();
+    const partHtml = c.parts.map((p, idx) => {
+      const d = p.detail || {};
+      const role = ROLE_LABEL[p.role] || p.role;
+      if (p.required === false) {
+        return `<section class="finding-detail-section" style="margin-top:16px;opacity:.6">
+        <div class="finding-detail-label">${esc(p.app)} (${esc(role)}) · not required for this control</div></section>`;
+      }
+      const missing = p.status === "missing";
+      const conf = d.confidence ?? 0;
+      return `<section class="finding-detail-section" style="margin-top:16px;border:1px solid var(--border);border-radius:8px;padding:12px">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+        <strong>${esc(p.app)} <span style="opacity:.7">(${esc(role)})</span></strong>
+        ${missing ? '<span class="stig-status-nr">Not scanned</span>' : statusPill(p.status)}
+      </div>
+      ${missing ? '<p style="font-size:13px;color:var(--text-muted)">This repository has no result for this control yet.</p>' : `
+      <div class="finding-detail-label" style="margin-top:10px">Evidence</div>
+      <div style="font-size:13px;line-height:1.6">${esc(p.evidence || "No evidence recorded.").replace(/\n/g, "<br>")}</div>
+      ${d.justification ? `<div class="finding-detail-label" style="margin-top:10px">Justification</div><div style="font-size:13px">${esc(d.justification)}</div>` : ""}
+      <div style="font-size:12px;color:var(--text-muted);margin-top:8px">Confidence ${esc(conf)}/100${d.locked_by_human ? " · 🔒 edited by a reviewer" : ""}</div>
+      ${stigRecordHtml(d)}
+      ${p.scan_id ? partEditHtml(p, { ...d, vuln_id: c.vuln_id }, idx, key) : ""}
+      ${p.scan_id ? `<div style="margin-top:10px"><a class="btn btn-sm" href="#/stig-viewer/${encodeURIComponent(p.scan_id)}">Open in ${esc(p.app)} STIG viewer</a></div>` : ""}`}
+    </section>`;
+    }).join("");
+    const overlay = document.createElement("div");
+    overlay.className = "finding-drawer-overlay";
+    overlay.id = "finding-drawer-overlay";
+    overlay.addEventListener("click", closeFindingDetail2);
+    const drawer = document.createElement("div");
+    drawer.className = "finding-drawer";
+    drawer.id = "finding-drawer";
+    drawer.setAttribute("role", "dialog");
+    drawer.setAttribute("aria-modal", "true");
+    drawer.setAttribute("aria-label", "Project STIG control details");
+    drawer.innerHTML = `
+    <div class="finding-drawer-header">
+      <div class="finding-drawer-title">
+        <h2>${esc(c.title || c.vuln_id)}</h2>
+        <div class="finding-drawer-badges">
+          <span class="stig-sev stig-sev-${esc(sev)}">${ucFirst(sev)}</span>
+          ${statusPill(c.status)}
+          <code style="font-size:12px">${esc(svNumber(c))}</code>
+          <span style="font-size:12px;color:var(--text-muted)">${esc(st.stig_name)}${st.release_info ? ` ${esc(st.release_info)}` : ""}</span>
+        </div>
+      </div>
+      <button class="finding-drawer-close" ${act("closeFindingDetail")} aria-label="Close">✕</button>
+    </div>
+    <div class="finding-drawer-body">
+      <div style="font-size:13px;color:var(--text-muted)">${esc(c.reason)}</div>
+      <h3 style="margin:18px 0 0;font-size:14px">Project parts</h3>
+      ${partHtml}
+      <div class="finding-detail-section" style="margin-top:20px">
+        <div class="finding-detail-label">Check Content</div>
+        <div class="stig-check" style="margin-top:6px">${esc(c.check_content || "—").replace(/\n/g, "<br>")}</div>
+      </div>
+      <div class="finding-detail-section" style="margin-top:12px">
+        <div class="finding-detail-label">Remediation</div>
+        <div style="margin-top:6px;font-size:13px;line-height:1.6">${esc(c.fix_text || "—").replace(/\n/g, "<br>")}</div>
+      </div>
+    </div>`;
+    document.body.appendChild(overlay);
+    document.body.appendChild(drawer);
+  }
+  async function renderProjectStig(id) {
+    _projectId = id;
+    setActive("projects");
+    const page = document.getElementById("page");
+    page.innerHTML = loading();
+    let data;
+    try {
+      data = await api.getProjectStigRollup(id);
+    } catch (e) {
+      page.innerHTML = errBanner(e.message);
+      return;
+    }
+    const sources = data.components.map((c) => `
+    <span class="app-type-badge evaluation">${esc(c.app)} <span style="opacity:.7">· ${esc(ROLE_LABEL[c.role] || c.role)}</span>
+      ${c.scan_id ? `· ${esc((c.timestamp || "").slice(0, 10))}` : "· no STIG scan yet"}</span>`).join(" ");
+    _rollupControls.clear();
+    const tables = data.stigs.map((st) => `
+    <div class="section">
+      <div class="section-title">${esc(st.stig_name)} ${st.release_info ? `<small style="color:var(--text-dim)">${esc(st.release_info)}</small>` : ""}</div>
+      <div class="stig-counts" style="margin-bottom:12px">
+        <div class="stig-count open"><span class="num">${esc(st.totals.open)}</span><span class="lbl">Open</span></div>
+        <div class="stig-count pass"><span class="num">${esc(st.totals.pass)}</span><span class="lbl">Not a Finding</span></div>
+        <div class="stig-count na"><span class="num">${esc(st.totals.na)}</span><span class="lbl">Not Applicable</span></div>
+        <div class="stig-count"><span class="num">${esc(st.totals.nr)}</span><span class="lbl">Evidence needed</span></div>
+        <div class="stig-count total"><span class="num">${esc(st.totals.total)}</span><span class="lbl">Total</span></div>
+      </div>
+      <table class="data-table"><thead><tr><th>Control (SV)</th><th>Title</th><th>Project</th><th>Parts</th></tr></thead><tbody>
+        ${st.controls.map((c) => {
+      const key = _rollupSeq++;
+      _rollupControls.set(key, { c, st });
+      return `<tr style="cursor:pointer" ${act("openProjectControl", key)}>
+          <td style="white-space:nowrap">${esc(svNumber(c))}</td><td>${esc(c.title)}</td>
+          <td>${statusPill(c.status)}<div style="font-size:12px;color:var(--text-muted);margin-top:4px">${esc(c.reason)}</div></td>
+          <td>${c.parts.map((p) => p.required === false ? `<div style="white-space:nowrap;opacity:.55" title="Not required for this control by configuration/stig-policy/project-roles.json">${esc(p.app)} <span>(${esc(ROLE_LABEL[p.role] || p.role)})</span> not required</div>` : `<div style="white-space:nowrap">${esc(p.app)} <span style="opacity:.7">(${esc(ROLE_LABEL[p.role] || p.role)})</span> ${statusPill(p.status)}</div>`).join("")}</td>
+        </tr>`;
+    }).join("")}
+      </tbody></table>
+    </div>`).join("");
+    page.innerHTML = `
+    ${pageHeader(`${data.project.name} — STIG roll-up`, {
+      subtitle: "A control is Not a Finding only when every repository in the project satisfies its part. Uses each repository's latest STIG scan.",
+      actions: '<a class="btn" href="#/projects">← Projects</a>'
+    })}
+    ${data.policy_error ? `<div style="margin-bottom:12px;padding:10px 12px;border:1px solid var(--border);border-left:3px solid var(--stig-open);border-radius:6px;font-size:13px">Role policy not applied: ${esc(data.policy_error)}</div>` : ""}
+    <div style="margin-bottom:16px;display:flex;flex-wrap:wrap;gap:8px">${sources}</div>
+    ${data.external && data.external.length ? `<div style="margin:-6px 0 16px;font-size:13px;color:var(--text-muted)">${externalBadges(data.external)}They are listed for the project and do not affect the roll-up.</div>` : ""}
+    ${tables || emptyState("No STIG results yet", "Run a STIG scan on the project repositories to see the roll-up.")}`;
+  }
+  function externalRow(x = { name: "", role: "other", note: "" }) {
+    return `
+    <div class="project-external-row project-row">
+      <select class="field-input project-external-name" aria-label="Component (scanned application)" style="flex:2">
+        <option value="">Select an application…</option>
+        ${[.../* @__PURE__ */ new Set([..._appNames, ...x.name ? [x.name] : []])].map((n) => `<option value="${esc(n)}"${n === x.name ? " selected" : ""}>${esc(n)}</option>`).join("")}
+      </select>
+      <select class="field-input project-external-role" style="flex:1">
+        ${_roles.map((r) => `<option value="${esc(r)}"${r === x.role ? " selected" : ""}>${esc(ROLE_LABEL[r] || r)}</option>`).join("")}
+      </select>
+      <input class="field-input project-external-note" aria-label="Note" maxlength="200" placeholder="Note (optional)" value="${esc(x.note || "")}" style="flex:2">
+      <button class="btn" type="button" ${act("removeProjectExternalRow", ARG.el)} aria-label="Remove component">✕</button>
+    </div>`;
+  }
+  function repoRow(repo = { app: "", role: "other" }) {
+    return `
+    <div class="project-repo-row project-row">
+      <select class="field-input project-repo-app" aria-label="Application" style="flex:2">
+        <option value="">Select an application…</option>
+        ${[.../* @__PURE__ */ new Set([..._appNames, ...repo.app ? [repo.app] : []])].map((n) => `<option value="${esc(n)}"${n === repo.app ? " selected" : ""}>${esc(n)}</option>`).join("")}
+      </select>
+      <select class="field-input project-repo-role" style="flex:1">
+        ${_roles.map((r) => `<option value="${esc(r)}"${r === repo.role ? " selected" : ""}>${esc(ROLE_LABEL[r] || r)}</option>`).join("")}
+      </select>
+      <button class="btn" type="button" ${act("removeProjectRepoRow", ARG.el)} aria-label="Remove repository">✕</button>
+    </div>`;
+  }
+  async function editProject(id) {
+    try {
+      const [data, apps] = await Promise.all([api.getProjects(), api.getApplications()]);
+      _projects = data.projects || [];
+      _roles = data.roles || _roles;
+      _appNames = (apps || []).map((a) => a.name).sort();
+      _appsByName = Object.fromEntries((apps || []).map((a) => [a.name, a]));
+    } catch (e) {
+      toast(e.message, "error");
+      return;
+    }
+    showProjectModal(id);
+  }
+  function showProjectModal(id) {
+    const project = _projects.find((p) => p.id === id) || { name: "", description: "", jira_project_key: "", repos: [] };
+    const overlay = document.createElement("div");
+    overlay.className = "modal-overlay";
+    overlay.id = "project-modal";
+    overlay.innerHTML = `
+    <div class="modal-container modal-xl" role="dialog" aria-modal="true" aria-label="${id ? "Edit" : "New"} project">
+      <div class="project-modal-head">
+        <h2>${id ? "Edit project" : "New project"}</h2>
+        <button class="btn btn-sm" ${act("closeProjectModal")} aria-label="Close">✕</button>
+      </div>
+      <input type="hidden" id="project-id" value="${esc(id || "")}">
+      <div class="project-field">
+        <label class="field-label" for="project-name">Name</label>
+        <input id="project-name" class="field-input" maxlength="80" placeholder="e.g. Customer Portal" value="${esc(project.name)}"${id ? " readonly" : ""}>
+      </div>
+      <div class="project-field">
+        <label class="field-label" for="project-desc">Description (optional)</label>
+        <input id="project-desc" class="field-input" maxlength="500" value="${esc(project.description)}">
+      </div>
+      <div class="project-field">
+        <label class="field-label" for="project-jira">Jira board (project key, optional)</label>
+        <input id="project-jira" class="field-input" maxlength="10" placeholder="MID" value="${esc(project.jira_project_key)}"
+          ${actOn("input", "upperAlnumInput", ARG.el)}>
+      </div>
+      <div class="project-field">
+        <label class="field-label">Repositories and roles</label>
+        <div id="project-repo-rows">${(project.repos.length ? project.repos : [void 0, void 0]).map((r) => repoRow(r)).join("")}</div>
+        <button class="btn" type="button" ${act("addProjectRepoRow")}>+ Add repository</button>
+      </div>
+      <div class="project-field">
+        <label class="field-label">Third-party components (no STIG)</label>
+        <div class="project-field-help">Scanned applications you depend on but cannot STIG, such as a vendor service or an identity provider. Listed on the project; they never block the roll-up.</div>
+        <div id="project-external-rows">${(project.external || []).map((x) => externalRow(x)).join("")}</div>
+        <button class="btn" type="button" ${act("addProjectExternalRow")}>+ Add third-party component</button>
+      </div>
+      <div id="project-modal-error" class="project-modal-error" role="alert"></div>
+      <div class="project-modal-actions">
+        <button class="btn" ${act("closeProjectModal")}>Cancel</button>
+        <button class="btn btn-primary" ${act("saveProject")}>Save</button>
+      </div>
+    </div>`;
+    document.body.appendChild(overlay);
+    document.getElementById(id ? "project-desc" : "project-name")?.focus();
+  }
+  function closeProjectModal() {
+    document.getElementById("project-modal")?.remove();
+  }
+  function addProjectRepoRow() {
+    document.getElementById("project-repo-rows")?.insertAdjacentHTML("beforeend", repoRow());
+  }
+  function addProjectExternalRow() {
+    document.getElementById("project-external-rows")?.insertAdjacentHTML("beforeend", externalRow());
+  }
+  function removeProjectExternalRow(btn) {
+    btn?.closest(".project-external-row")?.remove();
+  }
+  function removeProjectRepoRow(btn) {
+    btn?.closest(".project-repo-row")?.remove();
+  }
+  async function saveProject() {
+    const id = document.getElementById("project-id").value;
+    const repos = [...document.querySelectorAll(".project-repo-row")].map((row) => ({
+      app: row.querySelector(".project-repo-app").value.trim(),
+      role: row.querySelector(".project-repo-role").value
+    })).filter((r) => r.app);
+    const body = {
+      name: document.getElementById("project-name").value.trim(),
+      description: document.getElementById("project-desc").value.trim(),
+      jira_project_key: document.getElementById("project-jira").value.trim(),
+      repos,
+      external: [...document.querySelectorAll(".project-external-row")].map((row) => ({
+        name: row.querySelector(".project-external-name").value.trim(),
+        role: row.querySelector(".project-external-role").value,
+        note: row.querySelector(".project-external-note").value.trim()
+      })).filter((x) => x.name)
+    };
+    try {
+      await (id ? api.updateProject(id, body) : api.createProject(body));
+    } catch (e) {
+      document.getElementById("project-modal-error").textContent = e.detail || e.message;
+      return;
+    }
+    closeProjectModal();
+    toast(id ? "Project updated" : "Project created", "success");
+    if (location.hash.startsWith("#/projects")) renderProjects();
+    else window.dispatchEvent(new HashChangeEvent("hashchange"));
+  }
+  async function deleteProject(id) {
+    const p = _projects.find((x) => x.id === id);
+    const ok = await confirmDialog({
+      title: "Delete project?",
+      body: `${p ? p.name : id} will be removed. Its repositories and scans are not affected.`,
+      confirmLabel: "Delete"
+    });
+    if (!ok) return;
+    try {
+      await api.deleteProject(id);
+    } catch (e) {
+      toast(e.message, "error");
+      return;
+    }
+    renderProjects();
+  }
 
   // src/pages/applications.js
   var applications_exports = {};
@@ -5778,6 +6776,23 @@ epyon install-workflow</pre>
   }
 
   // src/pages/overview.js
+  var ORDER_KEY = "epyon.overview.order";
+  function overviewOrder() {
+    try {
+      return localStorage.getItem(ORDER_KEY) === "apps" ? "apps" : "projects";
+    } catch {
+      return "projects";
+    }
+  }
+  function overviewOrderChanged(value) {
+    const order = value === "apps" ? "apps" : "projects";
+    try {
+      localStorage.setItem(ORDER_KEY, order);
+    } catch {
+    }
+    const box = document.getElementById("overview-sections");
+    if (box) box.className = `overview-sections overview-order-${order}`;
+  }
   async function renderOverview() {
     setActive("overview");
     const page = document.getElementById("page");
@@ -5790,39 +6805,16 @@ epyon install-workflow</pre>
       ]);
       const projects = (projectData.projects || projectData || []).filter((p) => Array.isArray(p.repos));
       const byName = new Map(allApps.map((a) => [a.name, a]));
-      const grouped = new Set(projects.flatMap((p) => p.repos.map((r) => r.app)));
-      const apps = projects.length ? allApps.filter((a) => !grouped.has(a.name)) : allApps;
+      const apps = allApps;
       const continuous = apps.filter((a) => a.monitored);
       const evaluation = apps.filter((a) => !a.monitored);
       const anyMonitored = continuous.length > 0;
-      const makeCard = (app) => `
-          <div class="app-card status-${esc(app.status)}"
-               ${act("navigate", `#/applications/${encodeURIComponent(app.name)}`)}>
-            <div class="app-card-header">
-              <span class="app-name">${esc(app.name)}</span>
-              ${statusBadge(app.status)}
-            </div>
-            <div class="app-card-meta">
-              ${app.last_scanned ? `Last scanned: ${fmtDate(app.last_scanned)} · ${esc(app.scan_type || "full")}` : "Never scanned"}
-            </div>
-            <div class="severity-row">${gateBadge(app)} ${sevBadgeRow(app)}</div>
-            <div class="app-card-footer">
-              ${app.scan_count} scan${app.scan_count !== 1 ? "s" : ""} total
-            </div>
-          </div>`;
-      const ROLE = { frontend: "Front end", backend: "Back end", infra: "Infrastructure", other: "Other" };
-      const projectSections = projects.map((p) => {
-        const cards = p.repos.map((r) => byName.get(r.app) ? `<div>${makeCard(byName.get(r.app))}<div style="font-size:12px;color:var(--text-muted);margin:4px 0 0 4px">${esc(ROLE[r.role] || r.role)}</div></div>` : "").join("");
-        return `<div class="section">
-        <div class="section-title">
-          <span>▣ ${esc(p.name)} <span style="font-size:12px;font-weight:400;color:var(--text-muted)">(${p.repos.length} repositor${p.repos.length === 1 ? "y" : "ies"})</span></span>
-          <button class="btn btn-sm" ${act("navigate", `#/projects/${encodeURIComponent(p.id)}`)}>STIG roll-up →</button>
-        </div>
-        ${p.description ? `<div style="font-size:13px;color:var(--text-muted);margin-bottom:10px">${esc(p.description)}</div>` : ""}
-        <div class="app-grid">${cards || '<div style="color:var(--text-muted)">No scanned repositories yet.</div>'}</div>
-      </div>`;
-      }).join("");
-      const appSections = projectSections + (apps.length ? anyMonitored ? `<div class="section">
+      const makeCard = appCard;
+      const appsByName = Object.fromEntries(apps.map((a) => [a.name, a]));
+      const projectSections = projects.map((p) => projectSectionHtml(p, appsByName, `
+            <button class="btn btn-sm" ${act("editProject", p.id)}>Project properties</button>
+            <button class="btn btn-sm" ${act("navigate", `#/projects/${encodeURIComponent(p.id)}`)}>STIG roll-up →</button>`)).join("");
+      const appList = apps.length ? anyMonitored ? `<div class="section">
              <div class="section-title">
                <span>● Continuously Monitored <span style="font-size:12px;font-weight:400;color:var(--text-muted)">(${continuous.length})</span></span>
                <button class="btn btn-sm" ${act("navigate", "#/applications")}>View all →</button>
@@ -5837,22 +6829,40 @@ epyon install-workflow</pre>
              <div class="app-grid">${evaluation.map(makeCard).join("")}</div>
            </div>` : ""}` : `<div class="section">
              <div class="section-title">
-               ${projects.length ? "Other applications" : "Applications"}
+               ${projects.length ? "All applications" : "Applications"}
                <button class="btn btn-sm" ${act("navigate", "#/applications")}>View all →</button>
              </div>
              <div class="app-grid">${apps.map(makeCard).join("")}</div>
-           </div>` : projects.length ? "" : `<div class="section">
+           </div>` : `<div class="section">
            <div class="section-title">Applications</div>
            ${emptyState(
         "No applications yet",
         "Run your first scan to see applications here.",
         `<button class="btn btn-primary" ${act("navigate", "#/new-scan")} style="margin-top:16px">▶ Run First Scan</button>`
       )}
-         </div>`);
+         </div>`;
+      const order = overviewOrder();
+      const appSections = `
+      ${projects.length && apps.length ? `
+      <div class="overview-order">
+        <label class="field-label" for="overview-order-select">Show first</label>
+        <select id="overview-order-select" ${actOn("change", "overviewOrderChanged", ARG.value)}>
+          <option value="projects"${order === "projects" ? " selected" : ""}>Projects</option>
+          <option value="apps"${order === "apps" ? " selected" : ""}>Applications</option>
+        </select>
+      </div>` : ""}
+      <div id="overview-sections" class="overview-sections overview-order-${order}">
+        <div data-group="projects">${projectSections}</div>
+        <div data-group="apps">${appList}</div>
+      </div>`;
       page.innerHTML = `
       ${pageHeader(`Security Overview`, { actions: `<button class="btn btn-primary" ${act("navigate", "#/new-scan")}>+ Run Scan</button>` })}
 
       <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-value">${esc(projects.length)}</div>
+          <div class="stat-label">Projects</div>
+        </div>
         <div class="stat-card">
           <div class="stat-value">${esc(stats.total_applications)}</div>
           <div class="stat-label">Applications</div>
@@ -5879,8 +6889,7 @@ epyon install-workflow</pre>
         </div>
       </div>
 
-      ${buildCveSearchSection()}
-      ${buildSbomSearchSection()}
+      ${buildSearchSection()}
       ${buildOverviewExecSection()}
       ${buildOverviewTechSection()}
       ${buildOverviewIssoSection()}
@@ -5890,16 +6899,18 @@ epyon install-workflow</pre>
       page.innerHTML = errBanner(e.message);
     }
   }
-  function buildCveSearchSection() {
+  function buildSearchSection() {
     return `
     <div class="section cve-search">
-      <div class="section-title">Search a CVE across applications</div>
-      <form class="cve-search-form" ${actOn("submit", "cveSearchRun", ARG.event)}>
+      <div class="section-title">Search across applications</div>
+      <form class="cve-search-form" ${actOn("submit", "searchRun", ARG.event)}>
         <input id="cve-search-q" class="cve-search-input" type="text" minlength="3" maxlength="100"
-               placeholder="CVE-2024-12345, GHSA-…, or package name" autocomplete="off" required>
-        <select id="cve-search-field" class="cve-search-select" aria-label="Search by">
-          <option value="id">CVE / advisory ID</option>
-          <option value="package">Package name</option>
+               placeholder="CVE-2024-12345, GHSA-…, package name or purl" autocomplete="off" required>
+        <select id="cve-search-field" class="cve-search-select" aria-label="Search in">
+          <option value="all">Everything</option>
+          <option value="id">Vulnerability ID (CVE / advisory)</option>
+          <option value="package">Vulnerable package</option>
+          <option value="sbom">SBOM packages</option>
         </select>
         <label class="cve-search-history">
           <input id="cve-search-history" type="checkbox"> Include earlier scans
@@ -5907,30 +6918,33 @@ epyon install-workflow</pre>
         <button class="btn btn-primary" type="submit">Search</button>
       </form>
       <div id="cve-search-results"></div>
-    </div>`;
-  }
-  function buildSbomSearchSection() {
-    return `
-    <div class="section cve-search">
-      <div class="section-title">Search SBOMs across applications</div>
-      <form class="cve-search-form" ${actOn("submit", "sbomSearchRun", ARG.event)}>
-        <input id="sbom-search-q" class="cve-search-input" type="text" minlength="3" maxlength="100"
-               placeholder="Package name (e.g. log4j, lodash) or purl" autocomplete="off" required>
-        <label class="cve-search-history">
-          <input id="sbom-search-history" type="checkbox"> Include earlier scans
-        </label>
-        <button class="btn btn-primary" type="submit">Search</button>
-      </form>
       <div id="sbom-search-results"></div>
     </div>`;
   }
-  var _sbomSearchSeq = 0;
-  async function sbomSearchRun(ev) {
+  function searchRun(ev) {
     if (ev) ev.preventDefault();
+    const q = document.getElementById("cve-search-q").value.trim();
+    const scope = document.getElementById("cve-search-field").value;
+    const history = document.getElementById("cve-search-history").checked;
+    const wantVuln = scope !== "sbom";
+    const wantSbom = scope === "all" || scope === "sbom";
+    const field = scope === "all" ? /^(CVE|GHSA)-/i.test(q) ? "id" : "package" : scope;
+    for (const [id, show] of [["cve", wantVuln], ["sbom", wantSbom]]) {
+      if (!show) {
+        document.getElementById(`${id}-search-results`).innerHTML = "";
+        if (id === "cve") _cveSearchSeq++;
+        else _sbomSearchSeq++;
+      }
+    }
+    return Promise.all([
+      wantVuln ? cveSearchRun(q, field, history) : null,
+      wantSbom ? sbomSearchRun(q, history) : null
+    ]);
+  }
+  var _sbomSearchSeq = 0;
+  async function sbomSearchRun(q, history) {
     const out = document.getElementById("sbom-search-results");
     if (!out) return;
-    const q = document.getElementById("sbom-search-q").value.trim();
-    const history = document.getElementById("sbom-search-history").checked;
     const seq = ++_sbomSearchSeq;
     out.innerHTML = loading();
     try {
@@ -5970,13 +6984,9 @@ epyon install-workflow</pre>
   }
   var _cveSearchSeq = 0;
   var _cveBulk = { data: null, selected: /* @__PURE__ */ new Set() };
-  async function cveSearchRun(ev) {
-    if (ev) ev.preventDefault();
+  async function cveSearchRun(q, field, history) {
     const out = document.getElementById("cve-search-results");
     if (!out) return;
-    const q = document.getElementById("cve-search-q").value.trim();
-    const field = document.getElementById("cve-search-field").value;
-    const history = document.getElementById("cve-search-history").checked;
     const seq = ++_cveSearchSeq;
     out.innerHTML = loading();
     try {
@@ -6131,7 +7141,7 @@ epyon install-workflow</pre>
   }
   function cveBulkDone() {
     cveBulkClose();
-    cveSearchRun();
+    searchRun();
   }
   function cveBulkKeyTyped(input) {
     upperAlnumInput(input);
@@ -9464,902 +10474,6 @@ epyon install-workflow</pre>
     return !!_pollInterval && _scanJobs.some((j) => j.id === id && !j.done);
   }
 
-  // src/pages/projects.js
-  var projects_exports = {};
-  __export(projects_exports, {
-    addProjectRepoRow: () => addProjectRepoRow,
-    closeProjectModal: () => closeProjectModal,
-    deleteProject: () => deleteProject,
-    discardProjectPartEdit: () => discardProjectPartEdit,
-    openProjectControl: () => openProjectControl,
-    removeProjectRepoRow: () => removeProjectRepoRow,
-    renderProjectStig: () => renderProjectStig,
-    renderProjects: () => renderProjects,
-    saveProject: () => saveProject,
-    saveProjectPartEdit: () => saveProjectPartEdit,
-    showProjectModal: () => showProjectModal
-  });
-
-  // src/components/drawers/finding.js
-  var finding_exports = {};
-  __export(finding_exports, {
-    closeFindingDetail: () => closeFindingDetail2,
-    openFindingDetail: () => openFindingDetail2
-  });
-  function openFindingDetail2(id) {
-    const f = _findingsRegistry.get(id);
-    if (!f) return;
-    closeFindingDetail2();
-    const sev = f.severity || "unknown";
-    const fid = f.id || "—";
-    const tool = f.tool || "—";
-    const title = f.title || f.description || "—";
-    const desc = f.description || "";
-    const pkg = f.package || f.component || "";
-    const ver = f.version || "";
-    const fixed = f.fixed_version || "";
-    const target = f.target || f.file || "";
-    const line = f.line ? Array.isArray(f.line) && f.line.length === 2 ? f.line[0] === f.line[1] ? String(f.line[0]) : `${f.line[0]}-${f.line[1]}` : String(f.line) : "";
-    const refs = f.references || [];
-    const cisaKev = f.cisa_kev === true;
-    const cvssScore = f.nvd_cvss_v3_score != null ? f.nvd_cvss_v3_score : null;
-    const cvssSev = f.nvd_cvss_v3_severity || "";
-    const nvdUrl = f.nvd_url || (fid.startsWith("CVE-") ? `https://nvd.nist.gov/vuln/detail/${fid}` : "");
-    const cveSource = f.cve_source || "";
-    const sourceIcons = {
-      "GHSA": { icon: "🛡️", label: "GitHub Advisory", color: "#6e40aa" },
-      "NVD": { icon: "🏛️", label: "NIST NVD", color: "#1e40af" },
-      "OSV": { icon: "🔓", label: "OSV", color: "#059669" },
-      "Alpine": { icon: "🏔️", label: "Alpine SecDB", color: "#0d9488" },
-      "Debian": { icon: "🌀", label: "Debian Security", color: "#a90e3c" },
-      "Ubuntu": { icon: "🟠", label: "Ubuntu Security", color: "#e95420" },
-      "RHEL": { icon: "🎩", label: "Red Hat", color: "#cc0000" },
-      "Trivy": { icon: "🔍", label: "Trivy DB", color: "#1f2937" },
-      "Grype": { icon: "🦑", label: "Grype DB", color: "#475569" }
-    };
-    const sourceInfo = sourceIcons[cveSource] || null;
-    const sourceBadge = sourceInfo ? `<span style="display:inline-flex;align-items:center;gap:4px;background:${sourceInfo.color};color:#fff;font-size:12px;font-weight:600;padding:2px 6px;border-radius:3px;margin-left:6px" title="Source: ${sourceInfo.label}">
-         ${sourceInfo.icon} ${cveSource}
-       </span>` : "";
-    const idDisplay = fid.startsWith("CVE-") ? `<a class="finding-detail-id-link"
-          href="${esc(nvdUrl || "https://nvd.nist.gov/vuln/detail/" + esc(fid))}"
-          target="_blank" rel="noopener noreferrer">
-         ${esc(fid)}
-         <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
-              stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-           <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
-           <polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
-         </svg>
-       </a>${cisaKev ? ' <span style="background:var(--critical-bg);color:var(--critical);font-size:12px;font-weight:700;padding:2px 7px;border-radius:4px" title="CISA Known Exploited Vulnerability">KEV</span>' : ""}${sourceBadge}` : `<code>${esc(fid)}</code>${sourceBadge}`;
-    const refsHtml = refs.length ? `<div class="finding-detail-section">
-         <div class="finding-detail-label">References</div>
-         <div class="finding-detail-refs">
-           ${refs.map((r) => `<a href="${esc(r)}" target="_blank" rel="noopener noreferrer">${esc(r)}</a>`).join("")}
-         </div>
-       </div>` : "";
-    const descSection = desc && desc !== title ? `<div class="finding-detail-section">
-         <div class="finding-detail-label">Description</div>
-         <div class="finding-detail-desc">${esc(desc)}</div>
-       </div>` : "";
-    const overlay = document.createElement("div");
-    overlay.className = "finding-drawer-overlay";
-    overlay.id = "finding-drawer-overlay";
-    overlay.addEventListener("click", closeFindingDetail2);
-    const drawer = document.createElement("div");
-    drawer.className = "finding-drawer";
-    drawer.id = "finding-drawer";
-    drawer.setAttribute("role", "dialog");
-    drawer.setAttribute("aria-modal", "true");
-    drawer.setAttribute("aria-label", "Finding details");
-    drawer.innerHTML = `
-    <div class="finding-drawer-header">
-      <div class="finding-drawer-title">
-        <h2>${esc(title)}</h2>
-        <div class="finding-drawer-badges">
-          <span class="sev-badge ${esc(sev)}">${ucFirst(sev)}</span>
-          <span class="tool-tag">${esc(tool)}</span>
-          ${idDisplay}
-        </div>
-      </div>
-      <button class="finding-drawer-close" ${act("closeFindingDetail")} aria-label="Close">✕</button>
-    </div>
-    <div class="finding-drawer-body">
-
-      <div class="finding-detail-grid">
-        <div class="finding-detail-section">
-          <div class="finding-detail-label">Package / Component</div>
-          <div class="finding-detail-value">${pkg ? `<code>${esc(pkg)}</code>` : '<span style="color:var(--text-dim)">—</span>'}</div>
-        </div>
-        <div class="finding-detail-section">
-          <div class="finding-detail-label">Version</div>
-          <div class="finding-detail-value">${ver ? `<code>${esc(ver)}</code>` : '<span style="color:var(--text-dim)">—</span>'}</div>
-        </div>
-        <div class="finding-detail-section">
-          <div class="finding-detail-label">Fix Available</div>
-          <div class="finding-detail-value">${fixed ? `<code style="color:var(--clean)">${esc(fixed)}</code>` : '<span style="color:var(--text-dim)">None known</span>'}</div>
-        </div>
-        <div class="finding-detail-section">
-          <div class="finding-detail-label">Severity</div>
-          <div class="finding-detail-value"><span class="sev-badge ${esc(sev)}">${ucFirst(sev)}</span>${cvssScore != null ? ` <span style="color:var(--text-muted);font-size:12px">CVSS ${esc(String(cvssScore))}${cvssSev ? " · " + esc(cvssSev) : ""}</span>` : ""}</div>
-        </div>
-      </div>
-
-      ${cisaKev ? `
-        <div style="background:var(--critical-bg);border:1px solid var(--critical-bg);border-radius:var(--radius);padding:10px 14px;margin-bottom:12px;display:flex;align-items:center;gap:10px">
-          <span style="font-size:16px">⚠️</span>
-          <div>
-            <div style="color:var(--critical);font-weight:600;font-size:13px">CISA Known Exploited Vulnerability (KEV)</div>
-            <div style="color:var(--critical);font-size:12px;margin-top:2px">This CVE is actively exploited in the wild. CISA mandates remediation for federal agencies. Treat as highest priority.</div>
-          </div>
-        </div>` : ""}
-
-      ${target ? `
-        <div class="finding-detail-section">
-          <div class="finding-detail-label">${findingSource(f) === "container" ? "Container Image" : "File Path"}</div>
-          <div class="finding-detail-value"><code style="word-break:break-all">${esc(target)}</code>${line ? ` <span style="color:var(--text-muted);font-size:12px">line ${esc(line)}</span>` : ""}</div>
-        </div>` : ""}
-
-      ${descSection}
-
-      ${refsHtml}
-
-      ${_scanIdFromHash() && !window.__SCAN__ ? `
-      <div id="finding-jira-section" style="margin-top:16px;border-top:1px solid var(--border);padding-top:14px">
-        <button id="finding-jira-btn" class="btn btn-primary" ${act("jiraQuickAdd", id)}>Add to Jira</button>
-        <div id="finding-jira-status" style="font-size:12px;margin-top:8px"></div>
-      </div>` : ""}
-
-      <div id="finding-fix-section" style="margin-top:16px;border-top:1px solid var(--border);padding-top:14px">
-        <button id="finding-fix-btn" class="btn btn-ai" ${act("fetchFindingFix", id)}>
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-          Suggest Fix with AI
-        </button>
-        <div id="finding-fix-result"></div>
-      </div>
-
-    </div>`;
-    document.body.appendChild(overlay);
-    document.body.appendChild(drawer);
-  }
-  function closeFindingDetail2() {
-    const overlay = document.getElementById("finding-drawer-overlay");
-    const drawer = document.getElementById("finding-drawer");
-    overlay?.remove();
-    drawer?.remove();
-  }
-  window.fetchFindingFix = async function(fid) {
-    const f = _findingsRegistry.get(fid);
-    if (!f) return;
-    const btn = document.getElementById("finding-fix-btn");
-    const result = document.getElementById("finding-fix-result");
-    if (!btn || !result) return;
-    btn.disabled = true;
-    btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="animation:spin 1s linear infinite"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-.08-4.04"/></svg> Generating…`;
-    const payload = {
-      id: f.id || void 0,
-      title: f.title || f.description || void 0,
-      description: f.description !== f.title ? f.description : void 0,
-      tool: f.tool || void 0,
-      severity: f.severity || void 0,
-      package: f.package || f.component || void 0,
-      version: f.version || void 0,
-      fixed_version: f.fixed_version || void 0,
-      target: f.target || void 0,
-      references: (f.references || []).slice(0, 3)
-    };
-    Object.keys(payload).forEach((k) => payload[k] === void 0 && delete payload[k]);
-    try {
-      const data = await api.getFindingFix(payload);
-      btn.style.display = "none";
-      result.innerHTML = `
-      <div style="margin-top:12px;background:rgba(99,102,241,0.06);border:1px solid rgba(99,102,241,0.25);border-radius:var(--radius);padding:14px 16px;font-size:13px">
-        <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;color:var(--purple);font-size:12px;font-weight:600">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-          AI-SUGGESTED FIX
-        </div>
-        <div class="ai-fix-body">${renderMarkdown(data.fix || "")}</div>
-      </div>`;
-    } catch (err) {
-      btn.disabled = false;
-      btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg> Suggest Fix with AI`;
-      result.innerHTML = `<div style="margin-top:8px;color:var(--critical);font-size:12px">${esc(err.message)}</div>`;
-    }
-  };
-
-  // src/components/drawers/stig.js
-  var stig_exports2 = {};
-  __export(stig_exports2, {
-    _registerStigDetail: () => _registerStigDetail2,
-    _stigDetailRegistry: () => _stigDetailRegistry,
-    closeStigDetail: () => closeStigDetail,
-    openStigDetail: () => openStigDetail,
-    openStigViewerDetail: () => openStigViewerDetail2,
-    stigRecordHtml: () => stigRecordHtml,
-    stigStatusLabel: () => stigStatusLabel2
-  });
-  function openStigViewerDetail2(regKey) {
-    const entry = _stigRegistry.get(regKey);
-    if (!entry) return;
-    closeFindingDetail2();
-    const { c, scanId } = entry;
-    const STATUS_CLASS_MAP = {
-      "Open": "stig-status-open",
-      "Not a Finding": "stig-status-pass",
-      "Not Applicable": "stig-status-na",
-      "Not Reviewed": "stig-status-nr"
-    };
-    const conf = c.confidence ?? 0;
-    const confCls = conf >= 90 ? "conf-high" : conf >= 70 ? "conf-med" : conf >= 40 ? "conf-low" : "conf-none";
-    const confLbl = conf >= 90 ? "High" : conf >= 70 ? "Medium" : conf >= 40 ? "Low" : "Insufficient";
-    const sev = (c.severity || "unknown").toLowerCase();
-    const statusCls = STATUS_CLASS_MAP[c.status] || "stig-status-nr";
-    const overrideOptions = ["Not a Finding", "Not Applicable", "Open", "Not Reviewed"].map((s) => `<option value="${esc(s)}"${c.status === s ? " selected" : ""}>${esc(s)}</option>`).join("");
-    const overlay = document.createElement("div");
-    overlay.className = "finding-drawer-overlay";
-    overlay.id = "finding-drawer-overlay";
-    overlay.addEventListener("click", closeFindingDetail2);
-    const drawer = document.createElement("div");
-    drawer.className = "finding-drawer";
-    drawer.id = "finding-drawer";
-    drawer.setAttribute("role", "dialog");
-    drawer.setAttribute("aria-modal", "true");
-    drawer.setAttribute("aria-label", "STIG control details");
-    drawer.innerHTML = `
-    <div class="finding-drawer-header">
-      <div class="finding-drawer-title">
-        <h2>${esc(c.title || c.vuln_id)}</h2>
-        <div class="finding-drawer-badges">
-          <span class="stig-sev stig-sev-${esc(sev)}">${ucFirst(sev)}</span>
-          <span class="${esc(statusCls)}">${esc(c.status)}</span>
-          ${c.locked_by_human ? '<span class="stig-lock-badge" title="Manually locked by reviewer">🔒</span>' : ""}
-          <code style="font-size:12px">${esc(c.group_id || c.vuln_id)}</code>
-        </div>
-      </div>
-      <button class="finding-drawer-close" ${act("closeFindingDetail")} aria-label="Close">✕</button>
-    </div>
-    <div class="finding-drawer-body">
-
-      <div class="finding-detail-grid">
-        <div class="finding-detail-section">
-          <div class="finding-detail-label">Vuln ID</div>
-          <div class="finding-detail-value"><code>${esc(c.vuln_id)}</code></div>
-        </div>
-        <div class="finding-detail-section">
-          <div class="finding-detail-label">Rule ID</div>
-          <div class="finding-detail-value"><code>${esc(c.rule_id || "—")}</code></div>
-        </div>
-        <div class="finding-detail-section">
-          <div class="finding-detail-label">Group ID</div>
-          <div class="finding-detail-value"><code>${esc(c.group_id || "—")}</code></div>
-        </div>
-        <div class="finding-detail-section">
-          <div class="finding-detail-label">Confidence</div>
-          <div class="finding-detail-value">
-            <span class="stig-confidence ${confCls}">${conf}/100</span>
-            <span style="margin-left:6px;font-size:12px;color:var(--text-muted)">${confLbl}</span>
-          </div>
-        </div>
-        <div class="finding-detail-section">
-          <div class="finding-detail-label">STIG</div>
-          <div class="finding-detail-value" style="font-size:12px;color:var(--text-muted)">${esc(c._stig_name || "—")}</div>
-        </div>
-      </div>
-
-      ${stigRecordHtml(c)}
-
-      <div class="finding-detail-section" style="margin-top:12px">
-        <div class="finding-detail-label">Check Content</div>
-        <div class="stig-check" style="margin-top:6px">${esc(c.check_content || "—").replace(/\n/g, "<br>")}</div>
-      </div>
-
-      <div class="finding-detail-section" style="margin-top:12px">
-        <div class="finding-detail-label">Remediation</div>
-        <div style="margin-top:6px;font-size:13px;line-height:1.6;color:var(--text)">${esc(c.fix_text || "—").replace(/\n/g, "<br>")}</div>
-      </div>
-
-      <div style="margin-top:20px;border-top:1px solid var(--border);padding-top:16px">
-        <button class="btn btn-primary" ${act("openStigJiraModal", scanId, [regKey])}>Add to Jira</button>
-        <span id="stig-jira-drawer-status" style="margin-left:10px;font-size:12px"></span>
-      </div>
-
-      <div class="stig-override-section" style="margin-top:20px;border-top:1px solid var(--border);padding-top:16px">
-        <div class="finding-detail-label" style="margin-bottom:10px">
-          Assessment (editable)
-          ${c.locked_by_human ? '<span class="stig-lock-badge" style="margin-left:8px">🔒 Edited by a reviewer</span>' : ""}
-        </div>
-        <p style="font-size:12px;color:var(--text-muted);margin:0 0 10px">
-          Your edit is saved for this application and used by every later scan, which checks it against the
-          code. It is never overwritten. Check Content and Remediation come from the STIG and cannot be edited.
-        </p>
-        <div class="stig-override-form">
-          <div class="stig-override-row">
-            <label class="stig-override-label">Status</label>
-            <select class="stig-override-select" id="sd-status-${esc(c.vuln_id)}-${esc(c._slug)}">
-              ${overrideOptions}
-            </select>
-          </div>
-          <div class="stig-override-row">
-            <label class="stig-override-label">Evidence</label>
-            <textarea class="stig-override-textarea" id="sd-evid-${esc(c.vuln_id)}-${esc(c._slug)}"
-              placeholder="Cite the file and value that satisfy (or fail) this control" rows="6" maxlength="20000">${esc(c.evidence || "")}</textarea>
-          </div>
-          <div class="stig-override-row">
-            <label class="stig-override-label">Justification (optional)</label>
-            <textarea class="stig-override-textarea" id="sd-just-${esc(c.vuln_id)}-${esc(c._slug)}"
-              placeholder="Why you are changing this assessment" rows="3" maxlength="20000">${esc(c.justification || "")}</textarea>
-          </div>
-          <div class="stig-override-row stig-override-actions">
-            <button class="btn btn-sm btn-success"
-              ${act("saveStigOverrideFromDrawer", scanId, c._slug, c.vuln_id)}
-            >Save edit</button>
-            ${c.locked_by_human ? `<button class="btn btn-sm"
-                  ${act("clearStigOverrideFromDrawer", scanId, c._slug, c.vuln_id)}
-                >Discard edit</button>` : ""}
-            <span class="stig-override-msg" id="sd-msg-${esc(c.vuln_id)}-${esc(c._slug)}"></span>
-          </div>
-        </div>
-      </div>
-
-    </div>`;
-    document.body.appendChild(overlay);
-    document.body.appendChild(drawer);
-  }
-  function stigStatusLabel2(status) {
-    return status === "Not Reviewed" ? "Evidence needed" : status || "";
-  }
-  function stigRecordHtml(c) {
-    const rows = Array.isArray(c.changes_that_may_affect) ? c.changes_that_may_affect : [];
-    const auto = c.automation_recommendation;
-    const notes = [];
-    if (c.evidence_needed) notes.push(["Evidence needed", c.evidence_needed]);
-    if (c.verification_note) notes.push(["Verification", c.verification_note]);
-    if (c.reopened_reason) notes.push(["Re-opened", c.reopened_reason]);
-    if (c.downgraded_from) notes.push(["Downgraded from", c.downgraded_from]);
-    if (c.needs_owner_confirmation) notes.push(["Owner", "Needs owner confirmation"]);
-    (c.citation_failures || []).forEach((f) => notes.push(["Citation failed", f]));
-    if (!rows.length && !auto && !notes.length) return "";
-    const noteHtml = notes.map(([k, v]) => `<div style="font-size:13px;margin-top:4px"><strong>${esc(k)}:</strong> ${esc(v)}</div>`).join("");
-    const tableHtml = rows.length ? `
-    <table class="stig-table" style="margin-top:6px">
-      <thead><tr><th scope="col">Change</th><th scope="col">Where</th><th scope="col">Re-check</th></tr></thead>
-      <tbody>${rows.map((r) => `<tr><td>${esc(r.change)}</td><td>${esc(r.where)}</td><td>${esc(r.recheck)}</td></tr>`).join("")}</tbody>
-    </table>` : "";
-    const autoHtml = auto ? `
-    <div style="margin-top:8px;font-size:13px">
-      <strong>Automation:</strong> ${esc(auto.check || "—")}
-      ${auto.data_source ? `<div>Data source: ${esc(auto.data_source)}</div>` : ""}
-      ${auto.pass_fail_rule ? `<div>Pass/fail: ${esc(auto.pass_fail_rule)}</div>` : ""}
-      ${auto.where_it_runs ? `<div>Runs in: ${esc(auto.where_it_runs)}</div>` : ""}
-    </div>` : "";
-    return `
-      <div class="finding-detail-section" style="margin-top:12px">
-        <div class="finding-detail-label">Review Record</div>
-        ${noteHtml}${rows.length ? '<div class="finding-detail-label" style="margin-top:10px">Changes that may affect this control</div>' : ""}${tableHtml}${autoHtml}
-      </div>`;
-  }
-  function closeStigDetail() {
-    closeFindingDetail2();
-  }
-  window.saveStigOverrideFromDrawer = async (sid, slug, vulnId) => {
-    const statusEl = document.getElementById(`sd-status-${vulnId}-${slug}`);
-    const evidEl = document.getElementById(`sd-evid-${vulnId}-${slug}`);
-    const justEl = document.getElementById(`sd-just-${vulnId}-${slug}`);
-    const msgEl = document.getElementById(`sd-msg-${vulnId}-${slug}`);
-    if (!statusEl || !evidEl || !justEl || !msgEl) return;
-    const evidence = evidEl.value.trim();
-    const justification = justEl.value.trim();
-    msgEl.textContent = "Saving…";
-    msgEl.className = "stig-override-msg";
-    try {
-      const res = await fetch(`/api/scans/${encodeURIComponent(sid)}/stig-override`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ slug, vuln_id: vulnId, status: statusEl.value, evidence, justification })
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({ detail: res.statusText }));
-        throw new Error(err.detail || res.statusText);
-      }
-      msgEl.textContent = "✓ Saved";
-      msgEl.className = "stig-override-msg stig-override-ok";
-      const newStatus = statusEl.value;
-      setTimeout(() => {
-        closeFindingDetail2();
-        const patch = { status: newStatus, confidence: 95, locked_by_human: true, evidence, justification };
-        if (!window.updateStigControlInPlace?.(slug, vulnId, patch)) renderStigViewer(sid);
-      }, 800);
-    } catch (e) {
-      msgEl.textContent = `Error: ${e.message}`;
-      msgEl.className = "stig-override-msg stig-override-err";
-    }
-  };
-  window.clearStigOverrideFromDrawer = async (sid, slug, vulnId) => {
-    const msgEl = document.getElementById(`sd-msg-${vulnId}-${slug}`);
-    if (msgEl) {
-      msgEl.textContent = "Clearing…";
-      msgEl.className = "stig-override-msg";
-    }
-    try {
-      const res = await fetch(`/api/scans/${encodeURIComponent(sid)}/stig-override`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ slug, vuln_id: vulnId, status: "Open", justification: "", clear_lock: true })
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({ detail: res.statusText }));
-        throw new Error(err.detail || res.statusText);
-      }
-      if (msgEl) {
-        msgEl.textContent = "✓ Edit discarded";
-        msgEl.className = "stig-override-msg stig-override-ok";
-      }
-      setTimeout(() => {
-        closeFindingDetail2();
-        const patch = { status: "Open", confidence: 0, locked_by_human: false, evidence: "", justification: "" };
-        if (!window.updateStigControlInPlace?.(slug, vulnId, patch)) renderStigViewer(sid);
-      }, 800);
-    } catch (e) {
-      if (msgEl) {
-        msgEl.textContent = `Error: ${e.message}`;
-        msgEl.className = "stig-override-msg stig-override-err";
-      }
-    }
-  };
-  var _stigDetailNextId = 0;
-  var _stigDetailRegistry = /* @__PURE__ */ new Map();
-  function _registerStigDetail2(c) {
-    const id = _stigDetailNextId++;
-    _stigDetailRegistry.set(id, c);
-    return id;
-  }
-  function openStigDetail(id) {
-    const c = _stigDetailRegistry.get(id);
-    if (!c) return;
-    closeFindingDetail2();
-    const _SC = { "Open": "open", "Not a Finding": "not-a-finding", "Not Applicable": "na", "Not Reviewed": "not-reviewed" };
-    const _SA = { "Open": "Open", "Not a Finding": "Pass", "Not Applicable": "N/A", "Not Reviewed": "Evid." };
-    const sev = c.severity || "unknown";
-    const sevCls = sev.toLowerCase();
-    const latCls = _SC[c.latest_status] || "not-reviewed";
-    const latLbl = _SA[c.latest_status] || c.latest_status || "—";
-    const tl = [...c.timeline || []].sort((a, b) => b.date.localeCompare(a.date));
-    const timelineRows = tl.map((t, idx) => {
-      const cls = _SC[t.status] || "not-reviewed";
-      const lbl = _SA[t.status] || t.status;
-      const evidence = t.evidence || "No evidence provided.";
-      const confidence = t.confidence != null ? `${t.confidence}%` : "—";
-      const prevEvidence = idx < tl.length - 1 ? tl[idx + 1].evidence || "" : "";
-      const evidenceChanged = prevEvidence && evidence && prevEvidence !== evidence && t.status !== "Not Reviewed";
-      const changeClass = evidenceChanged ? ' style="background:var(--bg-hover)"' : "";
-      const changeIcon = evidenceChanged ? ' <span style="color:var(--accent);font-size:12px" title="Evidence changed from previous scan">🔄 Changed</span>' : "";
-      return `<tr${changeClass}>
-      <td style="padding:8px 12px;font-size:12px;color:var(--text-muted);white-space:nowrap;vertical-align:top">${esc(t.date.slice(0, 10))}</td>
-      <td style="padding:8px 12px;vertical-align:top"><span class="stig-status-chip ${cls}">${esc(lbl)}</span>${changeIcon}</td>
-      <td style="padding:8px 12px;font-size:12px;color:var(--text-muted);text-align:center;vertical-align:top">${confidence}</td>
-      <td style="padding:8px 12px;font-size:12px;color:var(--text);line-height:1.5;vertical-align:top">${esc(evidence).replace(/\n/g, "<br>")}</td>
-    </tr>`;
-    }).join("");
-    const overlay = document.createElement("div");
-    overlay.className = "finding-drawer-overlay";
-    overlay.id = "finding-drawer-overlay";
-    overlay.addEventListener("click", closeFindingDetail2);
-    const drawer = document.createElement("div");
-    drawer.className = "finding-drawer";
-    drawer.id = "finding-drawer";
-    drawer.setAttribute("role", "dialog");
-    drawer.setAttribute("aria-modal", "true");
-    drawer.setAttribute("aria-label", "STIG control details");
-    drawer.innerHTML = `
-    <div class="finding-drawer-header">
-      <div class="finding-drawer-title">
-        <h2>${esc(c.title || c.vuln_id || "—")}</h2>
-        <div class="finding-drawer-badges">
-          <span class="sev-badge ${esc(sevCls)}">${ucFirst(sev)}</span>
-          <span class="tool-tag">STIG</span>
-          <code>${esc(c.vuln_id)}</code>
-        </div>
-      </div>
-      <button class="finding-drawer-close" ${act("closeFindingDetail")} aria-label="Close">✕</button>
-    </div>
-    <div class="finding-drawer-body">
-      <div class="finding-detail-grid">
-        <div class="finding-detail-section">
-          <div class="finding-detail-label">Current Status</div>
-          <div class="finding-detail-value"><span class="stig-status-chip ${latCls}">${esc(latLbl)}</span></div>
-        </div>
-        <div class="finding-detail-section">
-          <div class="finding-detail-label">Benchmark</div>
-          <div class="finding-detail-value">${c.stig_name ? `<code style="font-size:12px">${esc(c.stig_name)}</code>` : '<span style="color:var(--text-dim)">—</span>'}</div>
-        </div>
-        <div class="finding-detail-section">
-          <div class="finding-detail-label">First Open</div>
-          <div class="finding-detail-value">${c.first_open ? esc(c.first_open.slice(0, 10)) : '<span style="color:var(--text-dim)">—</span>'}</div>
-        </div>
-        <div class="finding-detail-section">
-          <div class="finding-detail-label">First Closed</div>
-          <div class="finding-detail-value">${c.first_closed ? esc(c.first_closed.slice(0, 10)) : '<span style="color:var(--text-dim)">—</span>'}</div>
-        </div>
-        <div class="finding-detail-section">
-          <div class="finding-detail-label">MTTR</div>
-          <div class="finding-detail-value">${c.mttr_days != null ? `<strong>${c.mttr_days} days</strong>` : '<span style="color:var(--text-dim)">—</span>'}</div>
-        </div>
-      </div>
-      ${tl.length ? `
-      <div class="finding-detail-section">
-        <div class="finding-detail-label">Scan History</div>
-        <div class="finding-detail-desc" style="padding:0;background:none;border:1px solid var(--border-muted);border-radius:var(--radius);overflow:hidden">
-          <table style="width:100%;border-collapse:collapse">
-            <thead>
-              <tr style="background:var(--bg-hover);border-bottom:1px solid var(--border)">
-                <th scope="col" style="padding:8px 12px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);text-align:left;width:100px">Date</th>
-                <th scope="col" style="padding:8px 12px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);text-align:left;width:140px">Status</th>
-                <th scope="col" style="padding:8px 12px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);text-align:center;width:80px">Confidence</th>
-                <th scope="col" style="padding:8px 12px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text-muted);text-align:left">Evidence / Reasoning</th>
-              </tr>
-            </thead>
-            <tbody>${timelineRows}</tbody>
-          </table>
-        </div>
-      </div>` : ""}
-    </div>`;
-    document.body.appendChild(overlay);
-    document.body.appendChild(drawer);
-  }
-
-  // src/pages/projects.js
-  var _projects = [];
-  var _roles = ["frontend", "backend", "infra", "other"];
-  var _appNames = [];
-  var ROLE_LABEL = { frontend: "Frontend", backend: "Backend", infra: "Infrastructure", other: "Other" };
-  async function renderProjects() {
-    setActive("projects");
-    const page = document.getElementById("page");
-    page.innerHTML = loading();
-    try {
-      const [data, apps] = await Promise.all([api.getProjects(), api.getApplications()]);
-      _projects = data.projects || [];
-      _roles = data.roles || _roles;
-      _appNames = (apps || []).map((a) => a.name).sort();
-    } catch (e) {
-      page.innerHTML = errBanner(e.message);
-      return;
-    }
-    const cards = _projects.map((p) => `
-    <div class="card" style="margin-bottom:14px;padding:16px">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">
-        <div>
-          <h3 style="margin:0">${esc(p.name)}</h3>
-          ${p.description ? `<p style="margin:4px 0 0;color:var(--text-muted);font-size:13px">${esc(p.description)}</p>` : ""}
-          ${p.jira_project_key ? `<div style="margin-top:6px;font-size:12px;color:var(--text-dim)">Jira board: ${esc(p.jira_project_key)}</div>` : ""}
-        </div>
-        <div style="display:flex;gap:8px">
-          <a class="btn btn-primary" href="#/projects/${encodeURIComponent(p.id)}">STIG roll-up</a>
-          <button class="btn" ${act("showProjectModal", p.id)}>Edit</button>
-          <button class="btn btn-danger" ${act("deleteProject", p.id)}>Delete</button>
-        </div>
-      </div>
-      <div style="margin-top:12px;display:flex;flex-wrap:wrap;gap:8px">
-        ${p.repos.length ? p.repos.map((r) => `
-          <a class="app-type-badge evaluation" href="#/applications/${encodeURIComponent(r.app)}" style="text-decoration:none">
-            ${esc(r.app)} <span style="opacity:.7">· ${esc(ROLE_LABEL[r.role] || r.role)}</span>
-          </a>`).join("") : '<span style="color:var(--text-dim);font-size:13px">No repositories yet</span>'}
-      </div>
-    </div>`).join("");
-    page.innerHTML = `
-    ${pageHeader("Projects", {
-      subtitle: "A project is one system (ATO boundary) made of several repositories built by different teams.",
-      actions: `<button class="btn btn-primary" ${act("showProjectModal", "")}>New project</button>`
-    })}
-    ${_projects.length ? cards : emptyState(
-      "No projects yet",
-      "Create a project to group repositories that together satisfy one system's STIG controls."
-    )}`;
-  }
-  var STATUS_CLASS = {
-    "Open": "stig-status-open",
-    "Not a Finding": "stig-status-pass",
-    "Not Applicable": "stig-status-na",
-    "Not Reviewed": "stig-status-nr"
-  };
-  var statusLabel = (s) => s === "Not Reviewed" ? "Evidence needed" : s === "missing" ? "Not scanned" : s;
-  var statusPill = (s) => `<span class="${esc(STATUS_CLASS[s] || "stig-status-nr")}">${esc(statusLabel(s))}</span>`;
-  var svNumber = (c) => (String(c.rule_id || "").match(/^SV-\d+/i) || [c.group_id || c.vuln_id])[0];
-  var _rollupControls = /* @__PURE__ */ new Map();
-  var _projectId = null;
-  var STATUSES = ["Not a Finding", "Not Applicable", "Open", "Not Reviewed"];
-  var _rollupSeq = 0;
-  function partEditHtml(p, d, idx, seq) {
-    const id = (k) => `pd-${k}-${seq}-${idx}`;
-    const regKey = `project__${seq}__${idx}`;
-    _stigRegistry.set(regKey, { c: { ...d, vuln_id: d.vuln_id, _slug: p.slug }, scanId: p.scan_id });
-    return `
-      <div style="margin-top:12px;border-top:1px solid var(--border);padding-top:10px">
-        <div class="finding-detail-label" style="margin-bottom:8px">Assessment (editable)</div>
-        <div class="stig-override-form">
-          <div class="stig-override-row"><label class="stig-override-label">Status</label>
-            <select class="stig-override-select" id="${id("status")}">
-              ${STATUSES.map((st) => `<option value="${esc(st)}"${p.status === st ? " selected" : ""}>${esc(st)}</option>`).join("")}
-            </select></div>
-          <div class="stig-override-row"><label class="stig-override-label">Evidence</label>
-            <textarea class="stig-override-textarea" id="${id("evid")}" rows="5" maxlength="20000"
-              placeholder="Cite the file and value that satisfy (or fail) this control">${esc(p.evidence || "")}</textarea></div>
-          <div class="stig-override-row"><label class="stig-override-label">Justification (optional)</label>
-            <textarea class="stig-override-textarea" id="${id("just")}" rows="2" maxlength="20000">${esc(d.justification || "")}</textarea></div>
-          <div class="stig-override-row stig-override-actions">
-            <button class="btn btn-sm btn-success" ${act("saveProjectPartEdit", p.scan_id, p.slug, d.vuln_id, seq, idx)}>Save edit</button>
-            ${d.locked_by_human ? `<button class="btn btn-sm" ${act("discardProjectPartEdit", p.scan_id, p.slug, d.vuln_id)}>Discard edit</button>` : ""}
-            <button class="btn btn-sm btn-primary" ${act("openStigJiraModal", p.scan_id, [regKey])}>Add to Jira</button>
-            <span class="stig-override-msg" id="${id("msg")}"></span>
-          </div>
-        </div>
-      </div>`;
-  }
-  async function patchOverride(scanId, body, msgEl, done) {
-    msgEl.textContent = "Saving…";
-    msgEl.className = "stig-override-msg";
-    try {
-      const res = await fetch(`/api/scans/${encodeURIComponent(scanId)}/stig-override`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body)
-      });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({ detail: res.statusText }));
-        throw new Error(err.detail || res.statusText);
-      }
-      msgEl.textContent = "✓ Saved";
-      msgEl.className = "stig-override-msg stig-override-ok";
-      await done();
-    } catch (e) {
-      msgEl.textContent = `Error: ${e.message}`;
-      msgEl.className = "stig-override-msg stig-override-err";
-    }
-  }
-  async function refreshAndReopen(slug, vulnId) {
-    closeFindingDetail2();
-    await renderProjectStig(_projectId);
-    for (const [key, { c, st }] of _rollupControls) {
-      if (c.vuln_id === vulnId && c.parts.some((p) => p.slug === slug)) {
-        openProjectControl(key);
-        break;
-      }
-    }
-  }
-  function saveProjectPartEdit(scanId, slug, vulnId, seq, idx) {
-    const el = (k) => document.getElementById(`pd-${k}-${seq}-${idx}`);
-    return patchOverride(scanId, {
-      slug,
-      vuln_id: vulnId,
-      status: el("status").value,
-      evidence: el("evid").value.trim(),
-      justification: el("just").value.trim()
-    }, el("msg"), () => refreshAndReopen(slug, vulnId));
-  }
-  function discardProjectPartEdit(scanId, slug, vulnId) {
-    const msg = document.querySelector(".finding-drawer .stig-override-msg") || document.createElement("span");
-    return patchOverride(
-      scanId,
-      { slug, vuln_id: vulnId, status: "Open", justification: "", clear_lock: true },
-      msg,
-      () => refreshAndReopen(slug, vulnId)
-    );
-  }
-  function openProjectControl(key) {
-    const entry = _rollupControls.get(key);
-    if (!entry) return;
-    const { c, st } = entry;
-    closeFindingDetail2();
-    const sev = (c.severity || "unknown").toLowerCase();
-    const partHtml = c.parts.map((p, idx) => {
-      const d = p.detail || {};
-      const role = ROLE_LABEL[p.role] || p.role;
-      if (p.required === false) {
-        return `<section class="finding-detail-section" style="margin-top:16px;opacity:.6">
-        <div class="finding-detail-label">${esc(p.app)} (${esc(role)}) · not required for this control</div></section>`;
-      }
-      const missing = p.status === "missing";
-      const conf = d.confidence ?? 0;
-      return `<section class="finding-detail-section" style="margin-top:16px;border:1px solid var(--border);border-radius:8px;padding:12px">
-      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
-        <strong>${esc(p.app)} <span style="opacity:.7">(${esc(role)})</span></strong>
-        ${missing ? '<span class="stig-status-nr">Not scanned</span>' : statusPill(p.status)}
-      </div>
-      ${missing ? '<p style="font-size:13px;color:var(--text-muted)">This repository has no result for this control yet.</p>' : `
-      <div class="finding-detail-label" style="margin-top:10px">Evidence</div>
-      <div style="font-size:13px;line-height:1.6">${esc(p.evidence || "No evidence recorded.").replace(/\n/g, "<br>")}</div>
-      ${d.justification ? `<div class="finding-detail-label" style="margin-top:10px">Justification</div><div style="font-size:13px">${esc(d.justification)}</div>` : ""}
-      <div style="font-size:12px;color:var(--text-muted);margin-top:8px">Confidence ${esc(conf)}/100${d.locked_by_human ? " · 🔒 edited by a reviewer" : ""}</div>
-      ${stigRecordHtml(d)}
-      ${p.scan_id ? partEditHtml(p, { ...d, vuln_id: c.vuln_id }, idx, key) : ""}
-      ${p.scan_id ? `<div style="margin-top:10px"><a class="btn btn-sm" href="#/stig-viewer/${encodeURIComponent(p.scan_id)}">Open in ${esc(p.app)} STIG viewer</a></div>` : ""}`}
-    </section>`;
-    }).join("");
-    const overlay = document.createElement("div");
-    overlay.className = "finding-drawer-overlay";
-    overlay.id = "finding-drawer-overlay";
-    overlay.addEventListener("click", closeFindingDetail2);
-    const drawer = document.createElement("div");
-    drawer.className = "finding-drawer";
-    drawer.id = "finding-drawer";
-    drawer.setAttribute("role", "dialog");
-    drawer.setAttribute("aria-modal", "true");
-    drawer.setAttribute("aria-label", "Project STIG control details");
-    drawer.innerHTML = `
-    <div class="finding-drawer-header">
-      <div class="finding-drawer-title">
-        <h2>${esc(c.title || c.vuln_id)}</h2>
-        <div class="finding-drawer-badges">
-          <span class="stig-sev stig-sev-${esc(sev)}">${ucFirst(sev)}</span>
-          ${statusPill(c.status)}
-          <code style="font-size:12px">${esc(svNumber(c))}</code>
-          <span style="font-size:12px;color:var(--text-muted)">${esc(st.stig_name)}${st.release_info ? ` ${esc(st.release_info)}` : ""}</span>
-        </div>
-      </div>
-      <button class="finding-drawer-close" ${act("closeFindingDetail")} aria-label="Close">✕</button>
-    </div>
-    <div class="finding-drawer-body">
-      <div style="font-size:13px;color:var(--text-muted)">${esc(c.reason)}</div>
-      <h3 style="margin:18px 0 0;font-size:14px">Project parts</h3>
-      ${partHtml}
-      <div class="finding-detail-section" style="margin-top:20px">
-        <div class="finding-detail-label">Check Content</div>
-        <div class="stig-check" style="margin-top:6px">${esc(c.check_content || "—").replace(/\n/g, "<br>")}</div>
-      </div>
-      <div class="finding-detail-section" style="margin-top:12px">
-        <div class="finding-detail-label">Remediation</div>
-        <div style="margin-top:6px;font-size:13px;line-height:1.6">${esc(c.fix_text || "—").replace(/\n/g, "<br>")}</div>
-      </div>
-    </div>`;
-    document.body.appendChild(overlay);
-    document.body.appendChild(drawer);
-  }
-  async function renderProjectStig(id) {
-    _projectId = id;
-    setActive("projects");
-    const page = document.getElementById("page");
-    page.innerHTML = loading();
-    let data;
-    try {
-      data = await api.getProjectStigRollup(id);
-    } catch (e) {
-      page.innerHTML = errBanner(e.message);
-      return;
-    }
-    const sources = data.components.map((c) => `
-    <span class="app-type-badge evaluation">${esc(c.app)} <span style="opacity:.7">· ${esc(ROLE_LABEL[c.role] || c.role)}</span>
-      ${c.scan_id ? `· ${esc((c.timestamp || "").slice(0, 10))}` : "· no STIG scan yet"}</span>`).join(" ");
-    _rollupControls.clear();
-    const tables = data.stigs.map((st) => `
-    <div class="section">
-      <div class="section-title">${esc(st.stig_name)} ${st.release_info ? `<small style="color:var(--text-dim)">${esc(st.release_info)}</small>` : ""}</div>
-      <div class="stig-counts" style="margin-bottom:12px">
-        <div class="stig-count open"><span class="num">${esc(st.totals.open)}</span><span class="lbl">Open</span></div>
-        <div class="stig-count pass"><span class="num">${esc(st.totals.pass)}</span><span class="lbl">Not a Finding</span></div>
-        <div class="stig-count na"><span class="num">${esc(st.totals.na)}</span><span class="lbl">Not Applicable</span></div>
-        <div class="stig-count"><span class="num">${esc(st.totals.nr)}</span><span class="lbl">Evidence needed</span></div>
-        <div class="stig-count total"><span class="num">${esc(st.totals.total)}</span><span class="lbl">Total</span></div>
-      </div>
-      <table class="data-table"><thead><tr><th>Control (SV)</th><th>Title</th><th>Project</th><th>Parts</th></tr></thead><tbody>
-        ${st.controls.map((c) => {
-      const key = _rollupSeq++;
-      _rollupControls.set(key, { c, st });
-      return `<tr style="cursor:pointer" ${act("openProjectControl", key)}>
-          <td style="white-space:nowrap">${esc(svNumber(c))}</td><td>${esc(c.title)}</td>
-          <td>${statusPill(c.status)}<div style="font-size:12px;color:var(--text-muted);margin-top:4px">${esc(c.reason)}</div></td>
-          <td>${c.parts.map((p) => p.required === false ? `<div style="white-space:nowrap;opacity:.55" title="Not required for this control by configuration/stig-policy/project-roles.json">${esc(p.app)} <span>(${esc(ROLE_LABEL[p.role] || p.role)})</span> not required</div>` : `<div style="white-space:nowrap">${esc(p.app)} <span style="opacity:.7">(${esc(ROLE_LABEL[p.role] || p.role)})</span> ${statusPill(p.status)}</div>`).join("")}</td>
-        </tr>`;
-    }).join("")}
-      </tbody></table>
-    </div>`).join("");
-    page.innerHTML = `
-    ${pageHeader(`${data.project.name} — STIG roll-up`, {
-      subtitle: "A control is Not a Finding only when every repository in the project satisfies its part. Uses each repository's latest STIG scan.",
-      actions: '<a class="btn" href="#/projects">← Projects</a>'
-    })}
-    ${data.policy_error ? `<div style="margin-bottom:12px;padding:10px 12px;border:1px solid var(--border);border-left:3px solid var(--stig-open);border-radius:6px;font-size:13px">Role policy not applied: ${esc(data.policy_error)}</div>` : ""}
-    <div style="margin-bottom:16px;display:flex;flex-wrap:wrap;gap:8px">${sources}</div>
-    ${tables || emptyState("No STIG results yet", "Run a STIG scan on the project repositories to see the roll-up.")}`;
-  }
-  function repoRow(repo = { app: "", role: "other" }) {
-    return `
-    <div class="project-repo-row" style="display:flex;gap:8px;margin-bottom:8px">
-      <select class="field-input project-repo-app" aria-label="Application" style="flex:2">
-        <option value="">Select an application…</option>
-        ${[.../* @__PURE__ */ new Set([..._appNames, ...repo.app ? [repo.app] : []])].map((n) => `<option value="${esc(n)}"${n === repo.app ? " selected" : ""}>${esc(n)}</option>`).join("")}
-      </select>
-      <select class="field-input project-repo-role" style="flex:1">
-        ${_roles.map((r) => `<option value="${esc(r)}"${r === repo.role ? " selected" : ""}>${esc(ROLE_LABEL[r] || r)}</option>`).join("")}
-      </select>
-      <button class="btn" type="button" ${act("removeProjectRepoRow", ARG.el)} aria-label="Remove repository">✕</button>
-    </div>`;
-  }
-  function showProjectModal(id) {
-    const project = _projects.find((p) => p.id === id) || { name: "", description: "", jira_project_key: "", repos: [] };
-    const overlay = document.createElement("div");
-    overlay.className = "modal-overlay";
-    overlay.id = "project-modal";
-    overlay.innerHTML = `
-    <div class="modal-container modal-md" role="dialog" aria-modal="true" aria-label="${id ? "Edit" : "New"} project">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-        <h2 style="color:var(--text);margin:0">${id ? "Edit project" : "New project"}</h2>
-        <button class="btn" ${act("closeProjectModal")} style="padding:6px 12px" aria-label="Close">✕</button>
-      </div>
-      <input type="hidden" id="project-id" value="${esc(id || "")}">
-      <div style="margin-bottom:14px">
-        <label class="field-label" for="project-name">Name</label>
-        <input id="project-name" class="field-input" maxlength="80" placeholder="e.g. Customer Portal" value="${esc(project.name)}"${id ? " readonly" : ""}>
-      </div>
-      <div style="margin-bottom:14px">
-        <label class="field-label" for="project-desc">Description (optional)</label>
-        <input id="project-desc" class="field-input" maxlength="500" value="${esc(project.description)}">
-      </div>
-      <div style="margin-bottom:14px">
-        <label class="field-label" for="project-jira">Jira board (project key, optional)</label>
-        <input id="project-jira" class="field-input" maxlength="10" placeholder="MID" value="${esc(project.jira_project_key)}"
-          ${actOn("input", "upperAlnumInput", ARG.el)}>
-      </div>
-      <div style="margin-bottom:14px">
-        <label class="field-label">Repositories and roles</label>
-        <div id="project-repo-rows">${(project.repos.length ? project.repos : [void 0, void 0]).map((r) => repoRow(r)).join("")}</div>
-        <button class="btn" type="button" ${act("addProjectRepoRow")}>+ Add repository</button>
-      </div>
-      <div id="project-modal-error" style="color:var(--critical);font-size:13px;margin-bottom:10px" role="alert"></div>
-      <div style="display:flex;justify-content:flex-end;gap:8px">
-        <button class="btn" ${act("closeProjectModal")}>Cancel</button>
-        <button class="btn btn-primary" ${act("saveProject")}>Save</button>
-      </div>
-    </div>`;
-    document.body.appendChild(overlay);
-    document.getElementById(id ? "project-desc" : "project-name")?.focus();
-  }
-  function closeProjectModal() {
-    document.getElementById("project-modal")?.remove();
-  }
-  function addProjectRepoRow() {
-    document.getElementById("project-repo-rows")?.insertAdjacentHTML("beforeend", repoRow());
-  }
-  function removeProjectRepoRow(btn) {
-    btn?.closest(".project-repo-row")?.remove();
-  }
-  async function saveProject() {
-    const id = document.getElementById("project-id").value;
-    const repos = [...document.querySelectorAll(".project-repo-row")].map((row) => ({
-      app: row.querySelector(".project-repo-app").value.trim(),
-      role: row.querySelector(".project-repo-role").value
-    })).filter((r) => r.app);
-    const body = {
-      name: document.getElementById("project-name").value.trim(),
-      description: document.getElementById("project-desc").value.trim(),
-      jira_project_key: document.getElementById("project-jira").value.trim(),
-      repos
-    };
-    try {
-      await (id ? api.updateProject(id, body) : api.createProject(body));
-    } catch (e) {
-      document.getElementById("project-modal-error").textContent = e.detail || e.message;
-      return;
-    }
-    closeProjectModal();
-    toast(id ? "Project updated" : "Project created", "success");
-    renderProjects();
-  }
-  async function deleteProject(id) {
-    const p = _projects.find((x) => x.id === id);
-    const ok = await confirmDialog({
-      title: "Delete project?",
-      body: `${p ? p.name : id} will be removed. Its repositories and scans are not affected.`,
-      confirmLabel: "Delete"
-    });
-    if (!ok) return;
-    try {
-      await api.deleteProject(id);
-    } catch (e) {
-      toast(e.message, "error");
-      return;
-    }
-    renderProjects();
-  }
-
   // src/pages/stig-history.js
   var stig_history_exports = {};
   __export(stig_history_exports, {
@@ -11917,6 +12031,270 @@ Frontend Cache:
       e.preventDefault();
       el.click();
     });
+  }
+
+  // src/core/select.js
+  var ENHANCED = /* @__PURE__ */ new WeakMap();
+  var valueDesc = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value");
+  var open = null;
+  function optionsOf(sel) {
+    const out = [];
+    for (const node of sel.children) {
+      if (node.tagName === "OPTGROUP") {
+        out.push({ group: node.label });
+        for (const o of node.children) out.push({ o, indent: true });
+      } else if (node.tagName === "OPTION") out.push({ o: node });
+    }
+    return out;
+  }
+  function selectedLabel(sel) {
+    const o = sel.options[sel.selectedIndex];
+    return o ? o.textContent.trim() : "";
+  }
+  function closeMenu() {
+    if (!open) return;
+    open.menu.remove();
+    open.btn.setAttribute("aria-expanded", "false");
+    open = null;
+  }
+  function sync(sel) {
+    const st = ENHANCED.get(sel);
+    if (!st) return;
+    const label = selectedLabel(sel);
+    st.text.textContent = label || " ";
+    st.btn.classList.toggle("cs-placeholder", !sel.value);
+    st.btn.disabled = sel.disabled;
+    st.wrap.hidden = sel.style.display === "none" || sel.hidden;
+    if (open && open.sel === sel) renderItems(open);
+  }
+  function renderItems(ctx) {
+    const { sel, menu } = ctx;
+    menu.innerHTML = "";
+    ctx.items = [];
+    for (const entry of optionsOf(sel)) {
+      if (entry.group !== void 0) {
+        const g = document.createElement("div");
+        g.className = "cs-group";
+        g.textContent = entry.group;
+        menu.appendChild(g);
+        continue;
+      }
+      const item = document.createElement("div");
+      item.className = "cs-item" + (entry.indent ? " cs-indent" : "");
+      item.setAttribute("role", "option");
+      item.textContent = entry.o.textContent.trim() || " ";
+      if (entry.o.selected) {
+        item.classList.add("cs-selected");
+        item.setAttribute("aria-selected", "true");
+      }
+      if (entry.o.disabled) item.classList.add("cs-disabled");
+      item._opt = entry.o;
+      menu.appendChild(item);
+      ctx.items.push(item);
+    }
+    setActive3(ctx, ctx.items.findIndex((i) => i._opt.selected));
+  }
+  function setActive3(ctx, idx) {
+    ctx.items.forEach((i) => i.classList.remove("cs-active"));
+    if (idx < 0) idx = 0;
+    ctx.active = idx;
+    const item = ctx.items[idx];
+    if (item) {
+      item.classList.add("cs-active");
+      item.scrollIntoView({ block: "nearest" });
+    }
+  }
+  function choose(sel, opt) {
+    if (!opt || opt.disabled) return;
+    const changed = sel.options[sel.selectedIndex] !== opt;
+    valueDesc.set.call(sel, opt.value);
+    sync(sel);
+    closeMenu();
+    if (changed) sel.dispatchEvent(new Event("change", { bubbles: true }));
+  }
+  function position(ctx) {
+    const r = ctx.btn.getBoundingClientRect();
+    const { menu } = ctx;
+    menu.style.minWidth = `${r.width}px`;
+    menu.style.left = `${r.left}px`;
+    const below = window.innerHeight - r.bottom - 8;
+    const above = r.top - 8;
+    const flip = below < 160 && above > below;
+    menu.style.maxHeight = `${Math.max(120, Math.min(280, flip ? above : below))}px`;
+    if (flip) {
+      menu.style.top = "";
+      menu.style.bottom = `${window.innerHeight - r.top + 4}px`;
+    } else {
+      menu.style.bottom = "";
+      menu.style.top = `${r.bottom + 4}px`;
+    }
+  }
+  function openMenu(sel) {
+    const st = ENHANCED.get(sel);
+    if (!st || sel.disabled) return;
+    if (open && open.sel === sel) return;
+    closeMenu();
+    const menu = document.createElement("div");
+    menu.className = "cs-menu";
+    menu.setAttribute("role", "listbox");
+    open = { sel, btn: st.btn, menu, items: [], active: 0, typed: "", typedAt: 0 };
+    renderItems(open);
+    document.body.appendChild(menu);
+    position(open);
+    st.btn.setAttribute("aria-expanded", "true");
+    menu.addEventListener("mousedown", (e) => e.preventDefault());
+    menu.addEventListener("click", (e) => {
+      const item = e.target.closest(".cs-item");
+      if (item) choose(sel, item._opt);
+    });
+    menu.addEventListener("mousemove", (e) => {
+      const item = e.target.closest(".cs-item");
+      if (item) setActive3(open, open.items.indexOf(item));
+    });
+  }
+  function onKey(sel, e) {
+    const st = ENHANCED.get(sel);
+    if (!open || open.sel !== sel) {
+      if (["ArrowDown", "ArrowUp", "Enter", " "].includes(e.key)) {
+        e.preventDefault();
+        openMenu(sel);
+      }
+      return;
+    }
+    const step = (d) => {
+      let i = open.active;
+      do {
+        i += d;
+      } while (open.items[i] && open.items[i]._opt.disabled);
+      if (open.items[i]) setActive3(open, i);
+    };
+    switch (e.key) {
+      case "ArrowDown":
+        e.preventDefault();
+        step(1);
+        break;
+      case "ArrowUp":
+        e.preventDefault();
+        step(-1);
+        break;
+      case "Home":
+        e.preventDefault();
+        setActive3(open, 0);
+        break;
+      case "End":
+        e.preventDefault();
+        setActive3(open, open.items.length - 1);
+        break;
+      case "Enter":
+      case " ":
+        e.preventDefault();
+        choose(sel, open.items[open.active]?._opt);
+        break;
+      case "Escape":
+        e.preventDefault();
+        e.stopPropagation();
+        closeMenu();
+        st.btn.focus();
+        break;
+      case "Tab":
+        closeMenu();
+        break;
+      default:
+        if (e.key.length === 1 && !e.ctrlKey && !e.metaKey) {
+          const now = Date.now();
+          open.typed = (now - open.typedAt < 700 ? open.typed : "") + e.key.toLowerCase();
+          open.typedAt = now;
+          const i = open.items.findIndex((it) => !it._opt.disabled && it.textContent.toLowerCase().startsWith(open.typed));
+          if (i >= 0) setActive3(open, i);
+        }
+    }
+  }
+  function enhanceSelect(sel) {
+    if (ENHANCED.has(sel) || sel.multiple || sel.size > 1 || "native" in sel.dataset) return;
+    const wrap = document.createElement("div");
+    wrap.className = "cs";
+    wrap.style.cssText = sel.style.cssText;
+    wrap.style.display = "";
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = `cs-btn ${sel.className}`.trim();
+    btn.setAttribute("aria-haspopup", "listbox");
+    btn.setAttribute("aria-expanded", "false");
+    const label = sel.getAttribute("aria-label");
+    if (label) btn.setAttribute("aria-label", label);
+    else if (sel.id) {
+      const l = document.querySelector(`label[for="${CSS.escape(sel.id)}"]`) || sel.closest("label");
+      if (l) btn.setAttribute("aria-label", l.textContent.trim());
+    }
+    const text = document.createElement("span");
+    text.className = "cs-text";
+    const caret = document.createElement("span");
+    caret.className = "cs-caret";
+    caret.setAttribute("aria-hidden", "true");
+    btn.append(text, caret);
+    wrap.appendChild(btn);
+    sel.classList.add("cs-native");
+    sel.tabIndex = -1;
+    sel.after(wrap);
+    const observer = new MutationObserver(() => sync(sel));
+    observer.observe(sel, {
+      childList: true,
+      subtree: true,
+      characterData: true,
+      attributes: true,
+      attributeFilter: ["disabled", "style", "hidden", "selected", "label"]
+    });
+    ENHANCED.set(sel, { wrap, btn, text, observer });
+    Object.defineProperty(sel, "value", {
+      configurable: true,
+      get() {
+        return valueDesc.get.call(sel);
+      },
+      set(v) {
+        valueDesc.set.call(sel, v);
+        sync(sel);
+      }
+    });
+    sel.addEventListener("change", () => sync(sel));
+    btn.addEventListener("click", () => open && open.sel === sel ? closeMenu() : openMenu(sel));
+    btn.addEventListener("keydown", (e) => onKey(sel, e));
+    btn.addEventListener("blur", () => {
+      if (open && open.sel === sel) closeMenu();
+    });
+    sync(sel);
+  }
+  function enhanceWithin(root) {
+    if (root.nodeType !== 1) return;
+    if (root.matches("select")) enhanceSelect(root);
+    root.querySelectorAll?.("select").forEach(enhanceSelect);
+  }
+  function cleanupWithin(root) {
+    if (root.nodeType !== 1) return;
+    const sels = root.matches("select") ? [root] : [...root.querySelectorAll("select")];
+    for (const sel of sels) {
+      if (sel.isConnected) continue;
+      const st = ENHANCED.get(sel);
+      if (!st) continue;
+      st.observer.disconnect();
+      if (open && open.sel === sel) closeMenu();
+    }
+  }
+  if (typeof document !== "undefined" && !window.__customSelect) {
+    window.__customSelect = true;
+    enhanceWithin(document.body);
+    new MutationObserver((muts) => {
+      for (const m of muts) {
+        m.removedNodes.forEach(cleanupWithin);
+        m.addedNodes.forEach(enhanceWithin);
+      }
+    }).observe(document.body, { childList: true, subtree: true });
+    document.addEventListener("mousedown", (e) => {
+      if (open && !open.menu.contains(e.target) && !open.btn.contains(e.target)) closeMenu();
+    });
+    window.addEventListener("resize", closeMenu);
+    window.addEventListener("scroll", (e) => {
+      if (open && !open.menu.contains(e.target)) closeMenu();
+    }, true);
   }
 
   // src/core/actions.js

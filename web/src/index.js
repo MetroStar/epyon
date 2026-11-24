@@ -38,6 +38,7 @@ import * as m33 from './components/drawers/finding.js';
 import * as m34 from './components/drawers/signals.js';
 import * as m35 from './core/shell.js';
 import './core/a11y.js';
+import './core/select.js';
 import './core/actions.js';
 import * as m36 from './components/scan/ppsm.js';
 import * as m37 from './pages/self-assessment.js';

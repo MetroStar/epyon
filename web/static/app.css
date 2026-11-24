@@ -4448,3 +4448,19 @@ html .finding-drawer:focus-visible {
 .project-card-body > .app-grid {
   grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
 }
+.overview-sections {
+  display: flex;
+  flex-direction: column;
+}
+.overview-order-apps > [data-group=projects] {
+  order: 2;
+}
+.overview-order {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.overview-order .field-label {
+  margin: 0;
+}

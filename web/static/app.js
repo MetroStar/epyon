@@ -4886,6 +4886,7 @@ epyon install-workflow</pre>
     cveBulkToggleAll: () => cveBulkToggleAll,
     cveBulkTriagedByChanged: () => cveBulkTriagedByChanged,
     cveSearchResultsHtml: () => cveSearchResultsHtml,
+    overviewOrderChanged: () => overviewOrderChanged,
     renderOverview: () => renderOverview,
     sbomSearchResultsHtml: () => sbomSearchResultsHtml,
     searchRun: () => searchRun,
@@ -6750,6 +6751,23 @@ epyon install-workflow</pre>
   }
 
   // src/pages/overview.js
+  var ORDER_KEY = "epyon.overview.order";
+  function overviewOrder() {
+    try {
+      return localStorage.getItem(ORDER_KEY) === "apps" ? "apps" : "projects";
+    } catch {
+      return "projects";
+    }
+  }
+  function overviewOrderChanged(value) {
+    const order = value === "apps" ? "apps" : "projects";
+    try {
+      localStorage.setItem(ORDER_KEY, order);
+    } catch {
+    }
+    const box = document.getElementById("overview-sections");
+    if (box) box.className = `overview-sections overview-order-${order}`;
+  }
   async function renderOverview() {
     setActive("overview");
     const page = document.getElementById("page");
@@ -6796,7 +6814,7 @@ epyon install-workflow</pre>
         </div>
       </div>`;
       }).join("");
-      const appSections = projectSections + (apps.length ? anyMonitored ? `<div class="section">
+      const appList = apps.length ? anyMonitored ? `<div class="section">
              <div class="section-title">
                <span>● Continuously Monitored <span style="font-size:12px;font-weight:400;color:var(--text-muted)">(${continuous.length})</span></span>
                <button class="btn btn-sm" ${act("navigate", "#/applications")}>View all →</button>
@@ -6822,7 +6840,21 @@ epyon install-workflow</pre>
         "Run your first scan to see applications here.",
         `<button class="btn btn-primary" ${act("navigate", "#/new-scan")} style="margin-top:16px">▶ Run First Scan</button>`
       )}
-         </div>`);
+         </div>`;
+      const order = overviewOrder();
+      const appSections = `
+      ${projects.length && apps.length ? `
+      <div class="overview-order">
+        <label class="field-label" for="overview-order-select">Show first</label>
+        <select id="overview-order-select" ${actOn("change", "overviewOrderChanged", ARG.value)}>
+          <option value="projects"${order === "projects" ? " selected" : ""}>Projects</option>
+          <option value="apps"${order === "apps" ? " selected" : ""}>Applications</option>
+        </select>
+      </div>` : ""}
+      <div id="overview-sections" class="overview-sections overview-order-${order}">
+        <div data-group="projects">${projectSections}</div>
+        <div data-group="apps">${appList}</div>
+      </div>`;
       page.innerHTML = `
       ${pageHeader(`Security Overview`, { actions: `<button class="btn btn-primary" ${act("navigate", "#/new-scan")}>+ Run Scan</button>` })}
 

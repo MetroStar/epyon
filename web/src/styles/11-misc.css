@@ -339,3 +339,9 @@ html .finding-drawer:focus-visible { outline: none; }
 .project-cve-row .severity-row, .project-cve-row > span { display: flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; }
 @media (max-width: 900px) { .project-card-body { grid-template-columns: 1fr; } }
 .project-card-body > .app-grid { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
+
+/* Overview section ordering */
+.overview-sections { display: flex; flex-direction: column; }
+.overview-order-apps > [data-group="projects"] { order: 2; }
+.overview-order { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+.overview-order .field-label { margin: 0; }

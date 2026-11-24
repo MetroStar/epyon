@@ -11,6 +11,19 @@ import { buildOverviewExecSection, buildOverviewIssoSection, buildOverviewTechSe
 // Globals that other modules put on window (see index.js):
 /* global setActive */
 
+const ORDER_KEY = 'epyon.overview.order';
+
+function overviewOrder() {
+  try { return localStorage.getItem(ORDER_KEY) === 'apps' ? 'apps' : 'projects'; } catch { return 'projects'; }
+}
+
+export function overviewOrderChanged(value) {
+  const order = value === 'apps' ? 'apps' : 'projects';
+  try { localStorage.setItem(ORDER_KEY, order); } catch { /* storage unavailable: order applies to this view only */ }
+  const box = document.getElementById('overview-sections');
+  if (box) box.className = `overview-sections overview-order-${order}`;
+}
+
 export async function renderOverview() {
   setActive('overview');
   const page = document.getElementById('page');
@@ -64,7 +77,7 @@ export async function renderOverview() {
       </div>`;
     }).join('');
 
-    const appSections = projectSections + (apps.length
+    const appList = (apps.length
       ? anyMonitored
         ? `<div class="section">
              <div class="section-title">
@@ -95,6 +108,20 @@ export async function renderOverview() {
              `<button class="btn btn-primary" ${act('navigate', '#/new-scan')} style="margin-top:16px">▶ Run First Scan</button>`,
            )}
          </div>`);
+    const order = overviewOrder();
+    const appSections = `
+      ${projects.length && apps.length ? `
+      <div class="overview-order">
+        <label class="field-label" for="overview-order-select">Show first</label>
+        <select id="overview-order-select" ${actOn('change', 'overviewOrderChanged', ARG.value)}>
+          <option value="projects"${order === 'projects' ? ' selected' : ''}>Projects</option>
+          <option value="apps"${order === 'apps' ? ' selected' : ''}>Applications</option>
+        </select>
+      </div>` : ''}
+      <div id="overview-sections" class="overview-sections overview-order-${order}">
+        <div data-group="projects">${projectSections}</div>
+        <div data-group="apps">${appList}</div>
+      </div>`;
 
     page.innerHTML = `
       ${pageHeader(`Security Overview`, { actions: `<button class="btn btn-primary" ${act('navigate', '#/new-scan')}>+ Run Scan</button>` })}

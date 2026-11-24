@@ -1,5 +1,7 @@
 import { emptyState, errBanner, loading, pageHeader } from '../components/layout.js';
 import { confirmDialog, toast } from '../components/feedback.js';
+import { sevBadgeRow } from '../components/badges.js';
+import { appCard } from '../components/app-card.js';
 import { api } from '../lib/api.js';
 import { esc, act, actOn, ARG, ucFirst } from '../lib/format.js';
 import { closeFindingDetail } from '../components/drawers/finding.js';
@@ -12,8 +14,66 @@ import { _stigRegistry } from '../state/registries.js';
 let _projects = [];
 let _roles = ['frontend', 'backend', 'infra', 'other'];
 let _appNames = [];
+let _appsByName = {};
 
 const ROLE_LABEL = { frontend: 'Frontend', backend: 'Backend', infra: 'Infrastructure', other: 'Other' };
+
+const SEVS = ['critical', 'high', 'medium', 'low'];
+
+export const sevTiles = c => SEVS.map(k => `
+    <span class="project-sev ${k}${c[k] ? '' : ' zero'}" title="${ucFirst(k)}">
+      <span class="num">${Number(c[k]) || 0}</span><span class="lbl">${ucFirst(k)}</span></span>`).join('');
+
+// Vulnerability counts from each member's latest scan, summed across the project.
+export function cveSnapshot(p, byName = _appsByName) {
+  const members = [...p.repos, ...(p.external || []).map(x => ({ app: x.name, role: x.role, third: true }))];
+  const totals = { critical: 0, high: 0, medium: 0, low: 0 };
+  const rows = members.map(m => {
+    const a = byName[m.app];
+    if (a) SEVS.forEach(k => { totals[k] += Number(a[k]) || 0; });
+    return { ...m, scan: a };
+  });
+  const scanned = rows.filter(r => r.scan).length;
+  const tiles = sevTiles(totals);
+  const list = rows.map(r => `
+    <div class="project-cve-row">
+      <a href="#/applications/${encodeURIComponent(r.app)}">${esc(r.app)}${r.third ? ' <span class="project-card-meta">(third-party)</span>' : ''}</a>
+      <span>${r.scan ? sevBadgeRow(r.scan) : '<span class="project-card-meta">Not scanned</span>'}</span>
+    </div>`).join('');
+  return `
+    <div class="project-snapshot">
+      <div class="project-chips-label">Vulnerabilities <span style="text-transform:none;letter-spacing:0;font-weight:400">· latest scan of ${scanned}/${rows.length}</span></div>
+      <div class="project-sev-row">${tiles}</div>
+      ${list}
+    </div>`;
+}
+
+const ROLE_TEXT = { frontend: 'Front end', backend: 'Back end', infra: 'Infrastructure', other: 'Other' };
+
+// One project as an Overview-style section: repo cards beside the vulnerability snapshot.
+export function projectSectionHtml(p, byName, actionsHtml) {
+  const role = r => `<div class="project-card-role">${esc(ROLE_TEXT[r.role] || r.role)}</div>`;
+  const cards = p.repos.map(r => byName[r.app]
+    ? `<div class="project-card-cell">${appCard(byName[r.app])}${role(r)}</div>`
+    : `<div class="project-card-cell"><div class="app-card status-unknown"><div class="app-card-header"><span class="app-name">${esc(r.app)}</span></div><div class="app-card-meta">Never scanned</div></div>${role(r)}</div>`).join('');
+  return `<div class="section">
+    <div class="section-title">
+      <span>▣ ${esc(p.name)} <span style="font-size:12px;font-weight:400;color:var(--text-muted)">(${p.repos.length} repositor${p.repos.length === 1 ? 'y' : 'ies'}${p.jira_project_key ? ` · Jira ${esc(p.jira_project_key)}` : ''})</span></span>
+      <span style="display:flex;gap:8px">${actionsHtml}</span>
+    </div>
+    ${p.description ? `<div style="font-size:13px;color:var(--text-muted);margin-bottom:10px">${esc(p.description)}</div>` : ''}
+    <div class="project-card-body">
+      <div class="app-grid">${cards || '<div style="color:var(--text-muted)">No repositories yet.</div>'}</div>
+      ${cveSnapshot(p, byName)}
+    </div>
+  </div>`;
+}
+
+const externalBadges = list => (list && list.length) ? `
+      <div class="project-chips">
+        <span class="project-chips-label">Third-party, no STIG</span>
+        ${list.map(x => `<span class="app-type-badge" title="${esc(x.note || '')}">${esc(x.name)} <span style="opacity:.7">· ${esc(ROLE_LABEL[x.role] || x.role)}</span></span>`).join('')}
+      </div>` : '';
 
 export async function renderProjects() {
   setActive('projects');
@@ -24,32 +84,16 @@ export async function renderProjects() {
     _projects = data.projects || [];
     _roles = data.roles || _roles;
     _appNames = (apps || []).map(a => a.name).sort();
+    _appsByName = Object.fromEntries((apps || []).map(a => [a.name, a]));
   } catch (e) {
     page.innerHTML = errBanner(e.message);
     return;
   }
 
-  const cards = _projects.map(p => `
-    <div class="card" style="margin-bottom:14px;padding:16px">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">
-        <div>
-          <h3 style="margin:0">${esc(p.name)}</h3>
-          ${p.description ? `<p style="margin:4px 0 0;color:var(--text-muted);font-size:13px">${esc(p.description)}</p>` : ''}
-          ${p.jira_project_key ? `<div style="margin-top:6px;font-size:12px;color:var(--text-dim)">Jira board: ${esc(p.jira_project_key)}</div>` : ''}
-        </div>
-        <div style="display:flex;gap:8px">
-          <a class="btn btn-primary" href="#/projects/${encodeURIComponent(p.id)}">STIG roll-up</a>
-          <button class="btn" ${act('showProjectModal', p.id)}>Edit</button>
-          <button class="btn btn-danger" ${act('deleteProject', p.id)}>Delete</button>
-        </div>
-      </div>
-      <div style="margin-top:12px;display:flex;flex-wrap:wrap;gap:8px">
-        ${p.repos.length ? p.repos.map(r => `
-          <a class="app-type-badge evaluation" href="#/applications/${encodeURIComponent(r.app)}" style="text-decoration:none">
-            ${esc(r.app)} <span style="opacity:.7">· ${esc(ROLE_LABEL[r.role] || r.role)}</span>
-          </a>`).join('') : '<span style="color:var(--text-dim);font-size:13px">No repositories yet</span>'}
-      </div>
-    </div>`).join('');
+  const cards = _projects.map(p => projectSectionHtml(p, _appsByName, `
+            <button class="btn btn-sm" ${act('showProjectModal', p.id)}>Project properties</button>
+            <button class="btn btn-sm btn-danger" ${act('deleteProject', p.id)}>Delete</button>
+            <a class="btn btn-sm btn-primary" href="#/projects/${encodeURIComponent(p.id)}">STIG roll-up →</a>`)).join('');
 
   page.innerHTML = `
     ${pageHeader('Projects', {
@@ -260,12 +304,28 @@ export async function renderProjectStig(id) {
     })}
     ${data.policy_error ? `<div style="margin-bottom:12px;padding:10px 12px;border:1px solid var(--border);border-left:3px solid var(--stig-open);border-radius:6px;font-size:13px">Role policy not applied: ${esc(data.policy_error)}</div>` : ''}
     <div style="margin-bottom:16px;display:flex;flex-wrap:wrap;gap:8px">${sources}</div>
+    ${data.external && data.external.length ? `<div style="margin:-6px 0 16px;font-size:13px;color:var(--text-muted)">${externalBadges(data.external)}They are listed for the project and do not affect the roll-up.</div>` : ''}
     ${tables || emptyState('No STIG results yet', 'Run a STIG scan on the project repositories to see the roll-up.')}`;
+}
+
+function externalRow(x = { name: '', role: 'other', note: '' }) {
+  return `
+    <div class="project-external-row project-row">
+      <select class="field-input project-external-name" aria-label="Component (scanned application)" style="flex:2">
+        <option value="">Select an application…</option>
+        ${[...new Set([..._appNames, ...(x.name ? [x.name] : [])])].map(n => `<option value="${esc(n)}"${n === x.name ? ' selected' : ''}>${esc(n)}</option>`).join('')}
+      </select>
+      <select class="field-input project-external-role" style="flex:1">
+        ${_roles.map(r => `<option value="${esc(r)}"${r === x.role ? ' selected' : ''}>${esc(ROLE_LABEL[r] || r)}</option>`).join('')}
+      </select>
+      <input class="field-input project-external-note" aria-label="Note" maxlength="200" placeholder="Note (optional)" value="${esc(x.note || '')}" style="flex:2">
+      <button class="btn" type="button" ${act('removeProjectExternalRow', ARG.el)} aria-label="Remove component">✕</button>
+    </div>`;
 }
 
 function repoRow(repo = { app: '', role: 'other' }) {
   return `
-    <div class="project-repo-row" style="display:flex;gap:8px;margin-bottom:8px">
+    <div class="project-repo-row project-row">
       <select class="field-input project-repo-app" aria-label="Application" style="flex:2">
         <option value="">Select an application…</option>
         ${[...new Set([..._appNames, ...(repo.app ? [repo.app] : [])])].map(n => `<option value="${esc(n)}"${n === repo.app ? ' selected' : ''}>${esc(n)}</option>`).join('')}
@@ -277,38 +337,59 @@ function repoRow(repo = { app: '', role: 'other' }) {
     </div>`;
 }
 
+// Opens the edit modal from a page that has not loaded the projects list (Overview).
+export async function editProject(id) {
+  try {
+    const [data, apps] = await Promise.all([api.getProjects(), api.getApplications()]);
+    _projects = data.projects || [];
+    _roles = data.roles || _roles;
+    _appNames = (apps || []).map(a => a.name).sort();
+    _appsByName = Object.fromEntries((apps || []).map(a => [a.name, a]));
+  } catch (e) {
+    toast(e.message, 'error');
+    return;
+  }
+  showProjectModal(id);
+}
+
 export function showProjectModal(id) {
   const project = _projects.find(p => p.id === id) || { name: '', description: '', jira_project_key: '', repos: [] };
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
   overlay.id = 'project-modal';
   overlay.innerHTML = `
-    <div class="modal-container modal-md" role="dialog" aria-modal="true" aria-label="${id ? 'Edit' : 'New'} project">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-        <h2 style="color:var(--text);margin:0">${id ? 'Edit project' : 'New project'}</h2>
-        <button class="btn" ${act('closeProjectModal')} style="padding:6px 12px" aria-label="Close">✕</button>
+    <div class="modal-container modal-xl" role="dialog" aria-modal="true" aria-label="${id ? 'Edit' : 'New'} project">
+      <div class="project-modal-head">
+        <h2>${id ? 'Edit project' : 'New project'}</h2>
+        <button class="btn btn-sm" ${act('closeProjectModal')} aria-label="Close">✕</button>
       </div>
       <input type="hidden" id="project-id" value="${esc(id || '')}">
-      <div style="margin-bottom:14px">
+      <div class="project-field">
         <label class="field-label" for="project-name">Name</label>
         <input id="project-name" class="field-input" maxlength="80" placeholder="e.g. Customer Portal" value="${esc(project.name)}"${id ? ' readonly' : ''}>
       </div>
-      <div style="margin-bottom:14px">
+      <div class="project-field">
         <label class="field-label" for="project-desc">Description (optional)</label>
         <input id="project-desc" class="field-input" maxlength="500" value="${esc(project.description)}">
       </div>
-      <div style="margin-bottom:14px">
+      <div class="project-field">
         <label class="field-label" for="project-jira">Jira board (project key, optional)</label>
         <input id="project-jira" class="field-input" maxlength="10" placeholder="MID" value="${esc(project.jira_project_key)}"
           ${actOn('input', 'upperAlnumInput', ARG.el)}>
       </div>
-      <div style="margin-bottom:14px">
+      <div class="project-field">
         <label class="field-label">Repositories and roles</label>
         <div id="project-repo-rows">${(project.repos.length ? project.repos : [undefined, undefined]).map(r => repoRow(r)).join('')}</div>
         <button class="btn" type="button" ${act('addProjectRepoRow')}>+ Add repository</button>
       </div>
-      <div id="project-modal-error" style="color:var(--critical);font-size:13px;margin-bottom:10px" role="alert"></div>
-      <div style="display:flex;justify-content:flex-end;gap:8px">
+      <div class="project-field">
+        <label class="field-label">Third-party components (no STIG)</label>
+        <div class="project-field-help">Scanned applications you depend on but cannot STIG, such as a vendor service or an identity provider. Listed on the project; they never block the roll-up.</div>
+        <div id="project-external-rows">${(project.external || []).map(x => externalRow(x)).join('')}</div>
+        <button class="btn" type="button" ${act('addProjectExternalRow')}>+ Add third-party component</button>
+      </div>
+      <div id="project-modal-error" class="project-modal-error" role="alert"></div>
+      <div class="project-modal-actions">
         <button class="btn" ${act('closeProjectModal')}>Cancel</button>
         <button class="btn btn-primary" ${act('saveProject')}>Save</button>
       </div>
@@ -323,6 +404,14 @@ export function closeProjectModal() {
 
 export function addProjectRepoRow() {
   document.getElementById('project-repo-rows')?.insertAdjacentHTML('beforeend', repoRow());
+}
+
+export function addProjectExternalRow() {
+  document.getElementById('project-external-rows')?.insertAdjacentHTML('beforeend', externalRow());
+}
+
+export function removeProjectExternalRow(btn) {
+  btn?.closest('.project-external-row')?.remove();
 }
 
 export function removeProjectRepoRow(btn) {
@@ -342,6 +431,13 @@ export async function saveProject() {
     description: document.getElementById('project-desc').value.trim(),
     jira_project_key: document.getElementById('project-jira').value.trim(),
     repos,
+    external: [...document.querySelectorAll('.project-external-row')]
+      .map(row => ({
+        name: row.querySelector('.project-external-name').value.trim(),
+        role: row.querySelector('.project-external-role').value,
+        note: row.querySelector('.project-external-note').value.trim(),
+      }))
+      .filter(x => x.name),
   };
   try {
     await (id ? api.updateProject(id, body) : api.createProject(body));
@@ -351,7 +447,8 @@ export async function saveProject() {
   }
   closeProjectModal();
   toast(id ? 'Project updated' : 'Project created', 'success');
-  renderProjects();
+  if (location.hash.startsWith('#/projects')) renderProjects();
+  else window.dispatchEvent(new HashChangeEvent('hashchange'));
 }
 
 export async function deleteProject(id) {

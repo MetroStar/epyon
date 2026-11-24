@@ -137,6 +137,8 @@ def test_poam_app_rollup_combines_latest_stig_and_vuln_scans(tmp_path, monkeypat
     monkeypatch.setattr(api_main.parsers, "find_scan_dirs", lambda root, days=35: dirs)
     monkeypatch.setattr(api_main.parsers, "load_scan_complete", lambda d, r: {"findings": findings})
     monkeypatch.setattr(api_main, "_load_hidden_apps", lambda: set())
+    real_summarize = poam.summarize
+    monkeypatch.setattr(poam, "summarize", lambda rows, today=None: real_summarize(rows, today="2026-11-15"))
     client = TestClient(api_main.app)
 
     rows = client.get("/api/applications/myapp/poam?preview=true").json()["rows"]

@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Overview has one search box for vulnerabilities (ID or package) and SBOM packages, with a scope selector (default Everything) and a single "Include earlier scans" option.
 - Overview shows a Projects count, and still lists every application (including those inside a project) in the flat list below the project sections.
 - Projects can list third-party components (name, role, note) that have no repository or STIG, such as an identity provider or vendor API. They appear on the Projects page and the roll-up page, and never affect the roll-up.
 

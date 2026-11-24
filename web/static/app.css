@@ -3704,25 +3704,6 @@ details[open] > .findings-summary .findings-summary-hint {
 #cache-clear svg {
   display: block;
 }
-.search-row {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
-  align-items: start;
-  margin-bottom: 24px;
-}
-.search-row > .section {
-  margin-bottom: 0;
-}
-.search-row .cve-search-input {
-  flex: 1 1 140px;
-  min-width: 120px;
-}
-@media (max-width: 900px) {
-  .search-row {
-    grid-template-columns: 1fr;
-  }
-}
 .cve-search-form {
   display: flex;
   flex-wrap: wrap;

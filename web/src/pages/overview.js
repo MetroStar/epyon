@@ -127,10 +127,7 @@ export async function renderOverview() {
         </div>
       </div>
 
-      <div class="search-row">
-        ${buildCveSearchSection()}
-        ${buildSbomSearchSection()}
-      </div>
+      ${buildSearchSection()}
       ${buildOverviewExecSection()}
       ${buildOverviewTechSection()}
       ${buildOverviewIssoSection()}
@@ -141,52 +138,60 @@ export async function renderOverview() {
   }
 }
 
-// ── Cross-application CVE search (Overview) ───────────────────
-export function buildCveSearchSection() {
+// ── Cross-application search (Overview): vulnerabilities and SBOM packages ──
+export function buildSearchSection() {
   return `
     <div class="section cve-search">
-      <div class="section-title">Search a CVE across applications</div>
-      <form class="cve-search-form" ${actOn('submit', 'cveSearchRun', ARG.event)}>
+      <div class="section-title">Search across applications</div>
+      <form class="cve-search-form" ${actOn('submit', 'searchRun', ARG.event)}>
         <input id="cve-search-q" class="cve-search-input" type="text" minlength="3" maxlength="100"
-               placeholder="CVE-2024-12345, GHSA-…, or package name" autocomplete="off" required>
-        <select id="cve-search-field" class="cve-search-select" aria-label="Search by">
-          <option value="id">CVE / advisory ID</option>
-          <option value="package">Package name</option>
+               placeholder="CVE-2024-12345, GHSA-…, package name or purl" autocomplete="off" required>
+        <select id="cve-search-field" class="cve-search-select" aria-label="Search in">
+          <option value="all">Everything</option>
+          <option value="id">Vulnerability ID (CVE / advisory)</option>
+          <option value="package">Vulnerable package</option>
+          <option value="sbom">SBOM packages</option>
         </select>
         <label class="cve-search-history">
           <input id="cve-search-history" type="checkbox"> Include earlier scans
         </label>
         <button class="btn btn-primary" type="submit">Search</button>
       </form>
+      <div id="cve-search-heading" class="cve-search-summary" style="font-weight:600" hidden>Vulnerabilities</div>
       <div id="cve-search-results"></div>
-    </div>`;
-}
-
-// ── Cross-application SBOM package search (Overview) ──────────
-export function buildSbomSearchSection() {
-  return `
-    <div class="section cve-search">
-      <div class="section-title">Search SBOMs across applications</div>
-      <form class="cve-search-form" ${actOn('submit', 'sbomSearchRun', ARG.event)}>
-        <input id="sbom-search-q" class="cve-search-input" type="text" minlength="3" maxlength="100"
-               placeholder="Package name (e.g. log4j, lodash) or purl" autocomplete="off" required>
-        <label class="cve-search-history">
-          <input id="sbom-search-history" type="checkbox"> Include earlier scans
-        </label>
-        <button class="btn btn-primary" type="submit">Search</button>
-      </form>
+      <div id="sbom-search-heading" class="cve-search-summary" style="font-weight:600" hidden>SBOM packages</div>
       <div id="sbom-search-results"></div>
     </div>`;
 }
 
+export function searchRun(ev) {
+  if (ev) ev.preventDefault();
+  const q = document.getElementById('cve-search-q').value.trim();
+  const scope = document.getElementById('cve-search-field').value;
+  const history = document.getElementById('cve-search-history').checked;
+  const wantVuln = scope !== 'sbom';
+  const wantSbom = scope === 'all' || scope === 'sbom';
+  const field = scope === 'all' ? (/^(CVE|GHSA)-/i.test(q) ? 'id' : 'package') : scope;
+  const both = wantVuln && wantSbom;
+  for (const [id, show] of [['cve', wantVuln], ['sbom', wantSbom]]) {
+    const heading = document.getElementById(`${id}-search-heading`);
+    heading.hidden = !both || !show;
+    if (!show) {
+      document.getElementById(`${id}-search-results`).innerHTML = '';
+      if (id === 'cve') _cveSearchSeq++; else _sbomSearchSeq++;
+    }
+  }
+  return Promise.all([
+    wantVuln ? cveSearchRun(q, field, history) : null,
+    wantSbom ? sbomSearchRun(q, history) : null,
+  ]);
+}
+
 let _sbomSearchSeq = 0;
 
-export async function sbomSearchRun(ev) {
-  if (ev) ev.preventDefault();
+async function sbomSearchRun(q, history) {
   const out = document.getElementById('sbom-search-results');
   if (!out) return;
-  const q = document.getElementById('sbom-search-q').value.trim();
-  const history = document.getElementById('sbom-search-history').checked;
   const seq = ++_sbomSearchSeq;
   out.innerHTML = loading();
   try {
@@ -230,13 +235,9 @@ let _cveSearchSeq = 0;
 
 let _cveBulk = { data: null, selected: new Set() };
 
-export async function cveSearchRun(ev) {
-  if (ev) ev.preventDefault();
+async function cveSearchRun(q, field, history) {
   const out = document.getElementById('cve-search-results');
   if (!out) return;
-  const q = document.getElementById('cve-search-q').value.trim();
-  const field = document.getElementById('cve-search-field').value;
-  const history = document.getElementById('cve-search-history').checked;
   const seq = ++_cveSearchSeq;
   out.innerHTML = loading();
   try {
@@ -397,7 +398,7 @@ export function cveBulkTriagedByChanged(value) { _cveBulk.modal.triagedBy = valu
 
 export function cveBulkDone() {
   cveBulkClose();
-  cveSearchRun();
+  searchRun();
 }
 
 export function cveBulkKeyTyped(input) {

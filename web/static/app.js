@@ -5783,7 +5783,15 @@ epyon install-workflow</pre>
     const page = document.getElementById("page");
     page.innerHTML = loading();
     try {
-      const [stats, apps] = await Promise.all([api.getStats(), api.getApplications()]);
+      const [stats, allApps, projectData] = await Promise.all([
+        api.getStats(),
+        api.getApplications(),
+        api.getProjects().catch(() => ({ projects: [] }))
+      ]);
+      const projects = (projectData.projects || projectData || []).filter((p) => Array.isArray(p.repos));
+      const byName = new Map(allApps.map((a) => [a.name, a]));
+      const grouped = new Set(projects.flatMap((p) => p.repos.map((r) => r.app)));
+      const apps = projects.length ? allApps.filter((a) => !grouped.has(a.name)) : allApps;
       const continuous = apps.filter((a) => a.monitored);
       const evaluation = apps.filter((a) => !a.monitored);
       const anyMonitored = continuous.length > 0;
@@ -5802,7 +5810,20 @@ epyon install-workflow</pre>
               ${app.scan_count} scan${app.scan_count !== 1 ? "s" : ""} total
             </div>
           </div>`;
-      const appSections = apps.length ? anyMonitored ? `<div class="section">
+      const ROLE = { frontend: "Front end", backend: "Back end", infra: "Infrastructure", other: "Other" };
+      const projectSections = projects.map((p) => {
+        const cards = p.repos.map((r) => byName.get(r.app) ? `<div>${makeCard(byName.get(r.app))}<div style="font-size:12px;color:var(--text-muted);margin:4px 0 0 4px">${esc(ROLE[r.role] || r.role)}</div></div>` : "").join("");
+        return `<div class="section">
+        <div class="section-title">
+          <span>▣ ${esc(p.name)} <span style="font-size:12px;font-weight:400;color:var(--text-muted)">(${p.repos.length} repositor${p.repos.length === 1 ? "y" : "ies"})</span></span>
+          <button class="btn btn-sm" ${act("navigate", `#/projects/${encodeURIComponent(p.id)}`)}>STIG roll-up →</button>
+        </div>
+        ${p.description ? `<div style="font-size:13px;color:var(--text-muted);margin-bottom:10px">${esc(p.description)}</div>` : ""}
+        ${(p.external || []).length ? `<div style="font-size:12px;color:var(--text-dim);margin-bottom:10px">Third-party: ${p.external.map((x) => esc(x.name)).join(", ")}</div>` : ""}
+        <div class="app-grid">${cards || '<div style="color:var(--text-muted)">No scanned repositories yet.</div>'}</div>
+      </div>`;
+      }).join("");
+      const appSections = projectSections + (apps.length ? anyMonitored ? `<div class="section">
              <div class="section-title">
                <span>● Continuously Monitored <span style="font-size:12px;font-weight:400;color:var(--text-muted)">(${continuous.length})</span></span>
                <button class="btn btn-sm" ${act("navigate", "#/applications")}>View all →</button>
@@ -5817,18 +5838,18 @@ epyon install-workflow</pre>
              <div class="app-grid">${evaluation.map(makeCard).join("")}</div>
            </div>` : ""}` : `<div class="section">
              <div class="section-title">
-               Applications
+               ${projects.length ? "Other applications" : "Applications"}
                <button class="btn btn-sm" ${act("navigate", "#/applications")}>View all →</button>
              </div>
              <div class="app-grid">${apps.map(makeCard).join("")}</div>
-           </div>` : `<div class="section">
+           </div>` : projects.length ? "" : `<div class="section">
            <div class="section-title">Applications</div>
            ${emptyState(
         "No applications yet",
         "Run your first scan to see applications here.",
         `<button class="btn btn-primary" ${act("navigate", "#/new-scan")} style="margin-top:16px">▶ Run First Scan</button>`
       )}
-         </div>`;
+         </div>`);
       page.innerHTML = `
       ${pageHeader(`Security Overview`, { actions: `<button class="btn btn-primary" ${act("navigate", "#/new-scan")}>+ Run Scan</button>` })}
 

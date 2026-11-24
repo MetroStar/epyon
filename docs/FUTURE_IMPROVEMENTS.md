@@ -18,9 +18,9 @@ against `main` at 3.73.0 (PR #282 in review).
 | 8 | Smaller containers | Analysis |
 | 9 | "Lite" deployment mode (+ quick vs full comparison) | Analysis |
 | 10 | Review of the quartz-evaluator YAML | Analysis |
-| 11 | Editable STIG drawer fields | Feature |
+| 11 | Editable STIG drawer fields | Feature (done in 3.81.0) |
 | 12 | Jira button on the STIG drawer | Bug (fixed in #291) |
-| 13 | Optional justification that never overwrites evidence | Feature |
+| 13 | Optional justification that never overwrites evidence | Feature (done in 3.81.0) |
 | 14 | Projects: pairing repos, repos in many projects, front-end/back-end STIG pairing | Design |
 
 ## Decisions so far (confirmed by product owner)
@@ -338,7 +338,13 @@ mappings, and remediation text.
   which is the volume-mounted directory), and have scans read it as a human review.
   Today `PATCH /api/scans/{scan_id}/stig-override` writes only to that scan's
   `stig-results-{slug}.json`, so edits are not carried to later scans.
-- *Open:* store format and location; whether edits also publish to `docs/stig-reviews/`.
+- *Done (3.81.0):* edits live in `web/data/stig-edits/{app}.json`
+  (`{slug: {vuln_id: {status, evidence, justification, edited_by, edited_at}}}`, written by
+  `scripts/shell/stig_edits.py`). Every scan reads them and **verifies** each against the code
+  (the human-review verification prompt); a confirmed edit is locked and keeps the person's text,
+  a contradicted one stays Open with a note and the edit is kept. An edit made against another
+  release of the same STIG is not carried over: the control is re-assessed and says why.
+- *Still open:* publishing edits to `docs/stig-reviews/` (Epyon-side only for now).
 
 ## 12. Jira button on the STIG drawer
 
@@ -351,7 +357,7 @@ mappings, and remediation text.
 - Justification is currently prepended to evidence as `[Human override] ...`, prefilled
   from the control title, and labelled "(required)".
 - *Agreed direction:* keep it a separate optional field, drop the prefix and the prefill,
-  and never require it to change a status.
+  and never require it to change a status. Done in 3.81.0 with item 11.
 
 ## 14. Projects: pairing repos and front-end/back-end STIGs
 

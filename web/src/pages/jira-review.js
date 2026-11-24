@@ -473,9 +473,9 @@ export function openStigBulkLockModal(scanId) {
       </select>
     </div>
     <div style="margin-bottom:14px">
-      <label class="field-label" for="stig-bulk-just">Justification</label>
+      <label class="field-label" for="stig-bulk-just">Justification (optional)</label>
       <textarea id="stig-bulk-just" class="field-input" rows="3"
-        placeholder="Leave blank to use each control's requirement as its justification"></textarea>
+        placeholder="Why you are changing these controls. Each control's evidence is kept as is."></textarea>
     </div>
     <div id="stig-bulk-result" style="font-size:13px;margin-bottom:10px"></div>
     <div style="display:flex;justify-content:flex-end;gap:10px">
@@ -497,20 +497,21 @@ export function openStigBulkLockModal(scanId) {
       const c = controls[i];
       out.style.color = 'var(--text)';
       out.textContent = `${clear ? 'Unlocking' : 'Locking'} ${i + 1} of ${n}…`;
-      const justification = clear ? '' : (shared || c.title || status);
+      const justification = clear ? '' : shared;
+      const evidence = clear ? '' : (c.evidence || '');
       try {
         const res = await fetch(`/api/scans/${encodeURIComponent(scanId)}/stig-override`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ slug: c._slug, vuln_id: c.vuln_id, status, justification, clear_lock: clear }),
+          body: JSON.stringify({ slug: c._slug, vuln_id: c.vuln_id, status, evidence, justification, clear_lock: clear }),
         });
         if (!res.ok) {
           const err = await res.json().catch(() => ({ detail: res.statusText }));
           throw new Error(err.detail || res.statusText);
         }
         updates.push({ slug: c._slug, vulnId: c.vuln_id, patch: clear
-          ? { status: 'Open', confidence: 0, locked_by_human: false, evidence: '' }
-          : { status, confidence: 95, locked_by_human: true, evidence: `[Human override] ${justification}\n` } });
+          ? { status: 'Open', confidence: 0, locked_by_human: false, evidence: '', justification: '' }
+          : { status, confidence: 95, locked_by_human: true, evidence, justification } });
         _stigJiraSel.delete(`${c.vuln_id}__${c._slug}`);
       } catch (e) {
         failed.push(`${c.vuln_id} (${e.message})`);

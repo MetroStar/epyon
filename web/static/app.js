@@ -3345,9 +3345,9 @@ epyon install-workflow</pre>
       </select>
     </div>
     <div style="margin-bottom:14px">
-      <label class="field-label" for="stig-bulk-just">Justification</label>
+      <label class="field-label" for="stig-bulk-just">Justification (optional)</label>
       <textarea id="stig-bulk-just" class="field-input" rows="3"
-        placeholder="Leave blank to use each control's requirement as its justification"></textarea>
+        placeholder="Why you are changing these controls. Each control's evidence is kept as is."></textarea>
     </div>
     <div id="stig-bulk-result" style="font-size:13px;margin-bottom:10px"></div>
     <div style="display:flex;justify-content:flex-end;gap:10px">
@@ -3373,19 +3373,19 @@ epyon install-workflow</pre>
         const c = controls[i];
         out.style.color = "var(--text)";
         out.textContent = `${clear ? "Unlocking" : "Locking"} ${i + 1} of ${n}…`;
-        const justification = clear ? "" : shared || c.title || status;
+        const justification = clear ? "" : shared;
+        const evidence = clear ? "" : c.evidence || "";
         try {
           const res = await fetch(`/api/scans/${encodeURIComponent(scanId)}/stig-override`, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ slug: c._slug, vuln_id: c.vuln_id, status, justification, clear_lock: clear })
+            body: JSON.stringify({ slug: c._slug, vuln_id: c.vuln_id, status, evidence, justification, clear_lock: clear })
           });
           if (!res.ok) {
             const err = await res.json().catch(() => ({ detail: res.statusText }));
             throw new Error(err.detail || res.statusText);
           }
-          updates.push({ slug: c._slug, vulnId: c.vuln_id, patch: clear ? { status: "Open", confidence: 0, locked_by_human: false, evidence: "" } : { status, confidence: 95, locked_by_human: true, evidence: `[Human override] ${justification}
-` } });
+          updates.push({ slug: c._slug, vulnId: c.vuln_id, patch: clear ? { status: "Open", confidence: 0, locked_by_human: false, evidence: "", justification: "" } : { status, confidence: 95, locked_by_human: true, evidence, justification } });
           _stigJiraSel.delete(`${c.vuln_id}__${c._slug}`);
         } catch (e) {
           failed.push(`${c.vuln_id} (${e.message})`);
@@ -10614,10 +10614,6 @@ ${evidence.substring(0, 200)}${evidence.length > 200 ? "..." : ""}` : ""
     const confLbl = conf >= 90 ? "High" : conf >= 70 ? "Medium" : conf >= 40 ? "Low" : "Insufficient";
     const sev = (c.severity || "unknown").toLowerCase();
     const statusCls = STATUS_CLASS_MAP[c.status] || "stig-status-nr";
-    const justPrefilled = c.locked_by_human && c.evidence ? esc(c.evidence.replace(/^\[Human override\] /, "").split("\n")[0]) : "";
-    const autoJustStatuses = ["Not a Finding", "Not Applicable"];
-    const autoJust = c.title || "";
-    const justInitial = justPrefilled || (autoJustStatuses.includes(c.status) ? esc(autoJust) : "");
     const overrideOptions = ["Not a Finding", "Not Applicable", "Open", "Not Reviewed"].map((s) => `<option value="${esc(s)}"${c.status === s ? " selected" : ""}>${esc(s)}</option>`).join("");
     const overlay = document.createElement("div");
     overlay.className = "finding-drawer-overlay";
@@ -10670,11 +10666,6 @@ ${evidence.substring(0, 200)}${evidence.length > 200 ? "..." : ""}` : ""
         </div>
       </div>
 
-      <div class="finding-detail-section" style="margin-top:12px">
-        <div class="finding-detail-label">Evidence</div>
-        <div class="stig-evidence" style="margin-top:6px">${esc(c.evidence || "—").replace(/\n/g, "<br>")}</div>
-      </div>
-
       ${stigRecordHtml(c)}
 
       <div class="finding-detail-section" style="margin-top:12px">
@@ -10694,30 +10685,37 @@ ${evidence.substring(0, 200)}${evidence.length > 200 ? "..." : ""}` : ""
 
       <div class="stig-override-section" style="margin-top:20px;border-top:1px solid var(--border);padding-top:16px">
         <div class="finding-detail-label" style="margin-bottom:10px">
-          Manual Override
-          ${c.locked_by_human ? '<span class="stig-lock-badge" style="margin-left:8px">🔒 Locked by reviewer</span>' : ""}
+          Assessment (editable)
+          ${c.locked_by_human ? '<span class="stig-lock-badge" style="margin-left:8px">🔒 Edited by a reviewer</span>' : ""}
         </div>
+        <p style="font-size:12px;color:var(--text-muted);margin:0 0 10px">
+          Your edit is saved for this application and used by every later scan, which checks it against the
+          code. It is never overwritten. Check Content and Remediation come from the STIG and cannot be edited.
+        </p>
         <div class="stig-override-form">
           <div class="stig-override-row">
             <label class="stig-override-label">Status</label>
-            <select class="stig-override-select" id="sd-status-${esc(c.vuln_id)}-${esc(c._slug)}"
-              data-auto-just="${esc(autoJust)}"
-              ${actOn("change", "stigOverrideStatusChanged", ARG.el, `sd-just-${c.vuln_id}-${c._slug}`)}>
+            <select class="stig-override-select" id="sd-status-${esc(c.vuln_id)}-${esc(c._slug)}">
               ${overrideOptions}
             </select>
           </div>
           <div class="stig-override-row">
-            <label class="stig-override-label">Justification</label>
+            <label class="stig-override-label">Evidence</label>
+            <textarea class="stig-override-textarea" id="sd-evid-${esc(c.vuln_id)}-${esc(c._slug)}"
+              placeholder="Cite the file and value that satisfy (or fail) this control" rows="6" maxlength="20000">${esc(c.evidence || "")}</textarea>
+          </div>
+          <div class="stig-override-row">
+            <label class="stig-override-label">Justification (optional)</label>
             <textarea class="stig-override-textarea" id="sd-just-${esc(c.vuln_id)}-${esc(c._slug)}"
-              placeholder="Explain why this control is met (required)" rows="3">${justInitial}</textarea>
+              placeholder="Why you are changing this assessment" rows="3" maxlength="20000">${esc(c.justification || "")}</textarea>
           </div>
           <div class="stig-override-row stig-override-actions">
             <button class="btn btn-sm btn-success"
               ${act("saveStigOverrideFromDrawer", scanId, c._slug, c.vuln_id)}
-            >🔒 Lock Override</button>
+            >Save edit</button>
             ${c.locked_by_human ? `<button class="btn btn-sm"
                   ${act("clearStigOverrideFromDrawer", scanId, c._slug, c.vuln_id)}
-                >Clear Lock</button>` : ""}
+                >Discard edit</button>` : ""}
             <span class="stig-override-msg" id="sd-msg-${esc(c.vuln_id)}-${esc(c._slug)}"></span>
           </div>
         </div>
@@ -10763,44 +10761,32 @@ ${evidence.substring(0, 200)}${evidence.length > 200 ? "..." : ""}` : ""
   function closeStigDetail() {
     closeFindingDetail2();
   }
-  window.stigOverrideStatusChanged = (sel, justId) => {
-    const just = document.getElementById(justId);
-    if (!just) return;
-    const auto = sel.dataset.autoJust || "";
-    const val = just.value.trim();
-    if (val && val !== auto) return;
-    just.value = ["Not a Finding", "Not Applicable"].includes(sel.value) ? auto : "";
-  };
   window.saveStigOverrideFromDrawer = async (sid, slug, vulnId) => {
     const statusEl = document.getElementById(`sd-status-${vulnId}-${slug}`);
+    const evidEl = document.getElementById(`sd-evid-${vulnId}-${slug}`);
     const justEl = document.getElementById(`sd-just-${vulnId}-${slug}`);
     const msgEl = document.getElementById(`sd-msg-${vulnId}-${slug}`);
-    if (!statusEl || !justEl || !msgEl) return;
+    if (!statusEl || !evidEl || !justEl || !msgEl) return;
+    const evidence = evidEl.value.trim();
     const justification = justEl.value.trim();
-    if (!justification) {
-      msgEl.textContent = "Justification is required.";
-      msgEl.className = "stig-override-msg stig-override-err";
-      return;
-    }
     msgEl.textContent = "Saving…";
     msgEl.className = "stig-override-msg";
     try {
       const res = await fetch(`/api/scans/${encodeURIComponent(sid)}/stig-override`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ slug, vuln_id: vulnId, status: statusEl.value, justification })
+        body: JSON.stringify({ slug, vuln_id: vulnId, status: statusEl.value, evidence, justification })
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({ detail: res.statusText }));
         throw new Error(err.detail || res.statusText);
       }
-      msgEl.textContent = "✓ Locked";
+      msgEl.textContent = "✓ Saved";
       msgEl.className = "stig-override-msg stig-override-ok";
       const newStatus = statusEl.value;
       setTimeout(() => {
         closeFindingDetail2();
-        const patch = { status: newStatus, confidence: 95, locked_by_human: true, evidence: `[Human override] ${justification}
-` };
+        const patch = { status: newStatus, confidence: 95, locked_by_human: true, evidence, justification };
         if (!window.updateStigControlInPlace?.(slug, vulnId, patch)) renderStigViewer(sid);
       }, 800);
     } catch (e) {
@@ -10825,12 +10811,12 @@ ${evidence.substring(0, 200)}${evidence.length > 200 ? "..." : ""}` : ""
         throw new Error(err.detail || res.statusText);
       }
       if (msgEl) {
-        msgEl.textContent = "✓ Lock cleared";
+        msgEl.textContent = "✓ Edit discarded";
         msgEl.className = "stig-override-msg stig-override-ok";
       }
       setTimeout(() => {
         closeFindingDetail2();
-        const patch = { status: "Open", confidence: 0, locked_by_human: false, evidence: "" };
+        const patch = { status: "Open", confidence: 0, locked_by_human: false, evidence: "", justification: "" };
         if (!window.updateStigControlInPlace?.(slug, vulnId, patch)) renderStigViewer(sid);
       }, 800);
     } catch (e) {

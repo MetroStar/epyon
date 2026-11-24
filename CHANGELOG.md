@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.80.0] - 2026-11-23
+
+### Added
+
+- Project STIG roll-up (`GET /api/projects/{id}/stig-rollup` and a **STIG roll-up** page per project). Each repository's latest STIG scan is combined per control: Not a Finding only when every repository satisfies its part, Open if any is Open, otherwise Evidence needed (including repositories with no STIG scan yet). Phase 2 of FUTURE_IMPROVEMENTS item 14.
+
+## [3.79.0] - 2026-11-23
+
+### Added
+
+- Projects page and `/api/projects` (list, create, update, delete): group several applications into one system with a role per repository (frontend, backend, infrastructure, other) and an optional Jira board key. Stored in `web/data/projects.json`. Phase 1 of FUTURE_IMPROVEMENTS item 14; STIG roll-up across a project is not included yet.
+
 ## [3.78.2] - 2026-11-23
 
 ### Security

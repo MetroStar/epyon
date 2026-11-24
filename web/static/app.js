@@ -9540,7 +9540,7 @@ epyon install-workflow</pre>
         ${st.controls.map((c) => `<tr>
           <td>${esc(c.vuln_id)}</td><td>${esc(c.title)}</td>
           <td>${statusPill(c.status)}<div style="font-size:12px;color:var(--text-muted);margin-top:4px">${esc(c.reason)}</div></td>
-          <td>${c.parts.map((p) => `<div style="white-space:nowrap">${esc(p.app)} <span style="opacity:.7">(${esc(ROLE_LABEL[p.role] || p.role)})</span> ${statusPill(p.status)}</div>`).join("")}</td>
+          <td>${c.parts.map((p) => p.required === false ? `<div style="white-space:nowrap;opacity:.55" title="Not required for this control by configuration/stig-policy/project-roles.json">${esc(p.app)} <span>(${esc(ROLE_LABEL[p.role] || p.role)})</span> not required</div>` : `<div style="white-space:nowrap">${esc(p.app)} <span style="opacity:.7">(${esc(ROLE_LABEL[p.role] || p.role)})</span> ${statusPill(p.status)}</div>`).join("")}</td>
         </tr>`).join("")}
       </tbody></table>
     </div>`).join("");
@@ -9549,6 +9549,7 @@ epyon install-workflow</pre>
       subtitle: "A control is Not a Finding only when every repository in the project satisfies its part. Uses each repository's latest STIG scan.",
       actions: '<a class="btn" href="#/projects">← Projects</a>'
     })}
+    ${data.policy_error ? `<div style="margin-bottom:12px;padding:10px 12px;border:1px solid var(--border);border-left:3px solid var(--stig-open);border-radius:6px;font-size:13px">Role policy not applied: ${esc(data.policy_error)}</div>` : ""}
     <div style="margin-bottom:16px;display:flex;flex-wrap:wrap;gap:8px">${sources}</div>
     ${tables || emptyState("No STIG results yet", "Run a STIG scan on the project repositories to see the roll-up.")}`;
   }

@@ -172,6 +172,15 @@ def evidence_text(assessment: dict[str, Any], control: dict[str, Any]) -> tuple[
     return evidence, ""
 
 
+def confirmed_edit(assessment: dict[str, Any]) -> dict[str, Any] | None:
+    """The person's edit when a scan checked it against the repository and confirmed it."""
+    edit = assessment.get("human_edit")
+    verified = "and confirmed:" in str(assessment.get("verification_note", ""))
+    if isinstance(edit, dict) and assessment.get("locked_by_human") and edit.get("edited_by") and verified:
+        return edit
+    return None
+
+
 def render_entry(
     control: dict[str, Any],
     assessment: dict[str, Any],
@@ -182,6 +191,9 @@ def render_entry(
     template: str | None = None,
 ) -> str:
     template = template if template is not None else (TEMPLATE_DIR / "entry.md").read_text(encoding="utf-8")
+    edit = confirmed_edit(assessment)
+    if edit:
+        reviewer, scan_date = str(edit["edited_by"]), str(edit.get("edited_at", ""))[:10] or scan_date
     vnum = v_number(control).upper()
     rule = str(control.get("rule_id") or "").strip()
     version = str(control.get("vuln_id") or "").strip()
@@ -190,7 +202,11 @@ def render_entry(
     evidence, notes = evidence_text(assessment, control)
     confidence = max(MIN_RECORD_CONFIDENCE, int(assessment.get("confidence") or 0))
     note_parts = [f"Confidence {confidence}/100."]
-    if assessment.get("locked_by_human"):
+    if edit:
+        note_parts.append("Edited in Epyon and confirmed against the repository by a scan.")
+        if edit.get("justification"):
+            note_parts.append(f"Justification: {sanitize(str(edit['justification']))}")
+    elif assessment.get("locked_by_human"):
         note_parts.append("Human-reviewed; carried forward unchanged.")
     elif assessment.get("locked_by_previous"):
         note_parts.append("Carried forward from the previous scan.")
@@ -266,6 +282,9 @@ def render_index(
         findings = "none" if status != "Open" else "open"
         automation = _first_sentence(automation_text(assessment, control), 90)
         row_reviewer, row_date = reviewer, scan_date
+        edit = confirmed_edit(assessment)
+        if edit:
+            row_reviewer, row_date = str(edit["edited_by"]), str(edit.get("edited_at", ""))[:10] or scan_date
         if name in locked:
             row_reviewer, row_date = locked[name]["reviewer"], locked[name]["reviewed"]
             status = locked[name]["status"]
@@ -597,7 +616,7 @@ def publish_records(scan_dir: str | Path, target_dir: str | Path) -> dict[str, i
             name = entry.stem.lower()
             text = entry.read_text(encoding="utf-8")
             old = existing.get(name)
-            reopened = "Re-opened:" in text
+            reopened = "Re-opened:" in text or "Edited in Epyon and confirmed" in text
             if old and is_human_reviewer(old["reviewer"]) and not reopened:
                 continue
             (dest / entry.name).write_text(text, encoding="utf-8")

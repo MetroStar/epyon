@@ -16,8 +16,8 @@ let _appNames = [];
 const ROLE_LABEL = { frontend: 'Frontend', backend: 'Backend', infra: 'Infrastructure', other: 'Other' };
 
 const externalBadges = list => (list && list.length) ? `
-      <div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:8px;align-items:center">
-        <span style="font-size:12px;color:var(--text-dim)">Third-party (not STIG-assessed):</span>
+      <div class="project-chips">
+        <span class="project-chips-label">Third-party (no STIG)</span>
         ${list.map(x => `<span class="app-type-badge" title="${esc(x.note || '')}">${esc(x.name)} <span style="opacity:.7">· ${esc(ROLE_LABEL[x.role] || x.role)}</span></span>`).join('')}
       </div>` : '';
 
@@ -36,26 +36,27 @@ export async function renderProjects() {
   }
 
   const cards = _projects.map(p => `
-    <div class="card" style="margin-bottom:14px;padding:16px">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px">
-        <div>
-          <h3 style="margin:0">${esc(p.name)}</h3>
-          ${p.description ? `<p style="margin:4px 0 0;color:var(--text-muted);font-size:13px">${esc(p.description)}</p>` : ''}
-          ${p.jira_project_key ? `<div style="margin-top:6px;font-size:12px;color:var(--text-dim)">Jira board: ${esc(p.jira_project_key)}</div>` : ''}
+    <div class="project-card">
+      <div class="project-card-head">
+        <div class="project-card-title">
+          <h3>${esc(p.name)}</h3>
+          ${p.description ? `<p>${esc(p.description)}</p>` : ''}
+          ${p.jira_project_key ? `<div class="project-card-meta">Jira board: ${esc(p.jira_project_key)}</div>` : ''}
         </div>
-        <div style="display:flex;gap:8px">
+        <div class="project-card-actions">
           <a class="btn btn-primary" href="#/projects/${encodeURIComponent(p.id)}">STIG roll-up</a>
           <button class="btn" ${act('showProjectModal', p.id)}>Edit</button>
           <button class="btn btn-danger" ${act('deleteProject', p.id)}>Delete</button>
         </div>
       </div>
-      ${externalBadges(p.external)}
-      <div style="margin-top:12px;display:flex;flex-wrap:wrap;gap:8px">
+      <div class="project-chips">
+        <span class="project-chips-label">Repositories</span>
         ${p.repos.length ? p.repos.map(r => `
           <a class="app-type-badge evaluation" href="#/applications/${encodeURIComponent(r.app)}" style="text-decoration:none">
             ${esc(r.app)} <span style="opacity:.7">· ${esc(ROLE_LABEL[r.role] || r.role)}</span>
-          </a>`).join('') : '<span style="color:var(--text-dim);font-size:13px">No repositories yet</span>'}
+          </a>`).join('') : '<span class="project-card-meta">No repositories yet</span>'}
       </div>
+      ${externalBadges(p.external)}
     </div>`).join('');
 
   page.innerHTML = `
@@ -63,7 +64,7 @@ export async function renderProjects() {
       subtitle: 'A project is one system (ATO boundary) made of several repositories built by different teams.',
       actions: `<button class="btn btn-primary" ${act('showProjectModal', '')}>New project</button>`,
     })}
-    ${_projects.length ? cards : emptyState('No projects yet',
+    ${_projects.length ? `<div class="project-list">${cards}</div>` : emptyState('No projects yet',
       'Create a project to group repositories that together satisfy one system\'s STIG controls.')}`;
 }
 
@@ -273,7 +274,7 @@ export async function renderProjectStig(id) {
 
 function externalRow(x = { name: '', role: 'other', note: '' }) {
   return `
-    <div class="project-external-row" style="display:flex;gap:8px;margin-bottom:8px">
+    <div class="project-external-row project-row">
       <select class="field-input project-external-name" aria-label="Component (scanned application)" style="flex:2">
         <option value="">Select an application…</option>
         ${[...new Set([..._appNames, ...(x.name ? [x.name] : [])])].map(n => `<option value="${esc(n)}"${n === x.name ? ' selected' : ''}>${esc(n)}</option>`).join('')}
@@ -288,7 +289,7 @@ function externalRow(x = { name: '', role: 'other', note: '' }) {
 
 function repoRow(repo = { app: '', role: 'other' }) {
   return `
-    <div class="project-repo-row" style="display:flex;gap:8px;margin-bottom:8px">
+    <div class="project-repo-row project-row">
       <select class="field-input project-repo-app" aria-label="Application" style="flex:2">
         <option value="">Select an application…</option>
         ${[...new Set([..._appNames, ...(repo.app ? [repo.app] : [])])].map(n => `<option value="${esc(n)}"${n === repo.app ? ' selected' : ''}>${esc(n)}</option>`).join('')}
@@ -306,38 +307,38 @@ export function showProjectModal(id) {
   overlay.className = 'modal-overlay';
   overlay.id = 'project-modal';
   overlay.innerHTML = `
-    <div class="modal-container modal-md" role="dialog" aria-modal="true" aria-label="${id ? 'Edit' : 'New'} project">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-        <h2 style="color:var(--text);margin:0">${id ? 'Edit project' : 'New project'}</h2>
-        <button class="btn" ${act('closeProjectModal')} style="padding:6px 12px" aria-label="Close">✕</button>
+    <div class="modal-container modal-xl" role="dialog" aria-modal="true" aria-label="${id ? 'Edit' : 'New'} project">
+      <div class="project-modal-head">
+        <h2>${id ? 'Edit project' : 'New project'}</h2>
+        <button class="btn btn-sm" ${act('closeProjectModal')} aria-label="Close">✕</button>
       </div>
       <input type="hidden" id="project-id" value="${esc(id || '')}">
-      <div style="margin-bottom:14px">
+      <div class="project-field">
         <label class="field-label" for="project-name">Name</label>
         <input id="project-name" class="field-input" maxlength="80" placeholder="e.g. Customer Portal" value="${esc(project.name)}"${id ? ' readonly' : ''}>
       </div>
-      <div style="margin-bottom:14px">
+      <div class="project-field">
         <label class="field-label" for="project-desc">Description (optional)</label>
         <input id="project-desc" class="field-input" maxlength="500" value="${esc(project.description)}">
       </div>
-      <div style="margin-bottom:14px">
+      <div class="project-field">
         <label class="field-label" for="project-jira">Jira board (project key, optional)</label>
         <input id="project-jira" class="field-input" maxlength="10" placeholder="MID" value="${esc(project.jira_project_key)}"
           ${actOn('input', 'upperAlnumInput', ARG.el)}>
       </div>
-      <div style="margin-bottom:14px">
+      <div class="project-field">
         <label class="field-label">Repositories and roles</label>
         <div id="project-repo-rows">${(project.repos.length ? project.repos : [undefined, undefined]).map(r => repoRow(r)).join('')}</div>
         <button class="btn" type="button" ${act('addProjectRepoRow')}>+ Add repository</button>
       </div>
-      <div style="margin-bottom:14px">
+      <div class="project-field">
         <label class="field-label">Third-party components (no STIG)</label>
-        <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px">Scanned applications you depend on but cannot STIG, such as a vendor service or an identity provider. Listed on the project; they never block the roll-up.</div>
+        <div class="project-field-help">Scanned applications you depend on but cannot STIG, such as a vendor service or an identity provider. Listed on the project; they never block the roll-up.</div>
         <div id="project-external-rows">${(project.external || []).map(x => externalRow(x)).join('')}</div>
         <button class="btn" type="button" ${act('addProjectExternalRow')}>+ Add third-party component</button>
       </div>
-      <div id="project-modal-error" style="color:var(--critical);font-size:13px;margin-bottom:10px" role="alert"></div>
-      <div style="display:flex;justify-content:flex-end;gap:8px">
+      <div id="project-modal-error" class="project-modal-error" role="alert"></div>
+      <div class="project-modal-actions">
         <button class="btn" ${act('closeProjectModal')}>Cancel</button>
         <button class="btn btn-primary" ${act('saveProject')}>Save</button>
       </div>

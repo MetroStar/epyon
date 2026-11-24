@@ -225,3 +225,34 @@ html .finding-drawer:focus-visible { outline: none; }
   .dp-popover { flex-direction: column; right: auto; left: 0; }
   .dp-presets { flex-direction: row; flex-wrap: wrap; }
 }
+
+/* Projects page and modal */
+.project-list { display: flex; flex-direction: column; gap: 16px; }
+.project-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius-lg);
+  padding: 20px 24px;
+}
+.project-card-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
+.project-card-title { min-width: 0; flex: 1 1 260px; }
+.project-card-title h3 { margin: 0; font-size: 16px; font-weight: 600; color: var(--text); }
+.project-card-title p { margin: 6px 0 0; color: var(--text-muted); font-size: 13px; line-height: 1.5; }
+.project-card-meta { margin-top: 6px; font-size: 12px; color: var(--text-dim); }
+.project-card-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.project-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border); }
+.project-chips + .project-chips { margin-top: 12px; padding-top: 0; border-top: 0; }
+.project-chips-label { flex: 0 0 140px; font-size: 11px; font-weight: 600; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em; }
+
+#project-modal .modal-container { padding: 28px 32px; }
+.project-modal-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 24px; }
+.project-modal-head h2 { margin: 0; font-size: 18px; font-weight: 600; color: var(--text); }
+.project-field { margin-bottom: 22px; }
+.project-field-help { font-size: 12px; color: var(--text-muted); line-height: 1.5; margin-bottom: 10px; }
+.project-row { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; }
+.project-row .field-input { min-width: 0; }
+.project-modal-error { color: var(--critical); font-size: 13px; min-height: 0; margin-bottom: 12px; }
+.project-modal-error:empty { display: none; }
+.project-modal-actions { display: flex; justify-content: flex-end; gap: 10px; padding-top: 18px; border-top: 1px solid var(--border); }
+#project-modal select.field-input { appearance: auto; }

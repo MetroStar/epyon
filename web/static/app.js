@@ -1262,6 +1262,7 @@ jobs:
       pull-requests: write
       security-events: write
       issues: write
+      id-token: write
     uses: MetroStar/epyon/.github/workflows/epyon-scan.yml@main
     with:
       scan_mode: quick
@@ -1277,6 +1278,7 @@ jobs:
       pull-requests: write
       security-events: write
       issues: write
+      id-token: write
     uses: MetroStar/epyon/.github/workflows/epyon-scan.yml@main
     with:
       scan_mode: \${{ github.event_name == 'schedule' && (github.event.schedule == '0 2 * * 0' && 'full' || 'nightly') || github.event.inputs.scan_mode || 'full' }}

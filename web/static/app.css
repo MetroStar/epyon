@@ -4445,3 +4445,9 @@ html .finding-drawer:focus-visible {
     grid-template-columns: 1fr;
   }
 }
+.project-card-body > .app-grid {
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+}
+.app-card .project-sev-row {
+  margin: 10px 0;
+}

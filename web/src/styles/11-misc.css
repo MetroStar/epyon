@@ -338,3 +338,5 @@ html .finding-drawer:focus-visible { outline: none; }
 .project-cve-row a:hover { color: var(--accent); }
 .project-cve-row .severity-row, .project-cve-row > span { display: flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; }
 @media (max-width: 900px) { .project-card-body { grid-template-columns: 1fr; } }
+.project-card-body > .app-grid { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
+.app-card .project-sev-row { margin: 10px 0; }

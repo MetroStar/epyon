@@ -19,19 +19,21 @@ const ROLE_LABEL = { frontend: 'Frontend', backend: 'Backend', infra: 'Infrastru
 
 const SEVS = ['critical', 'high', 'medium', 'low'];
 
+export const sevTiles = c => SEVS.map(k => `
+    <span class="project-sev ${k}${c[k] ? '' : ' zero'}" title="${ucFirst(k)}">
+      <span class="num">${Number(c[k]) || 0}</span><span class="lbl">${ucFirst(k)}</span></span>`).join('');
+
 // Vulnerability counts from each member's latest scan, summed across the project.
-function cveSnapshot(p) {
+export function cveSnapshot(p, byName = _appsByName) {
   const members = [...p.repos, ...(p.external || []).map(x => ({ app: x.name, role: x.role, third: true }))];
   const totals = { critical: 0, high: 0, medium: 0, low: 0 };
   const rows = members.map(m => {
-    const a = _appsByName[m.app];
+    const a = byName[m.app];
     if (a) SEVS.forEach(k => { totals[k] += Number(a[k]) || 0; });
     return { ...m, scan: a };
   });
   const scanned = rows.filter(r => r.scan).length;
-  const tiles = SEVS.map(k => `
-    <a class="project-sev ${k}${totals[k] ? '' : ' zero'}" href="#/applications" title="${ucFirst(k)}">
-      <span class="num">${totals[k]}</span><span class="lbl">${ucFirst(k)}</span></a>`).join('');
+  const tiles = sevTiles(totals);
   const list = rows.map(r => `
     <div class="project-cve-row">
       <a href="#/applications/${encodeURIComponent(r.app)}">${esc(r.app)}${r.third ? ' <span class="project-card-meta">(third-party)</span>' : ''}</a>

@@ -4,6 +4,7 @@ import { emptyState, errBanner, loading, pageHeader } from '../components/layout
 import { api } from '../lib/api.js';
 import { upperAlnumInput, upperInput } from '../core/ui-helpers.js';
 import { esc, fmtDate, ucFirst, act, actOn, ARG } from '../lib/format.js';
+import { cveSnapshot, sevTiles } from './projects.js';
 import { renderApplications } from './applications.js';
 import { buildOverviewExecSection, buildOverviewIssoSection, buildOverviewTechSection } from '../components/summaries.js';
 
@@ -27,7 +28,7 @@ export async function renderOverview() {
     const evaluation  = apps.filter(a => !a.monitored);
     const anyMonitored = continuous.length > 0;
 
-    const makeCard = app => `
+    const makeCard = (app, tiles = false) => `
           <div class="app-card status-${esc(app.status)}"
                ${act('navigate', `#/applications/${encodeURIComponent(app.name)}`)}>
             <div class="app-card-header">
@@ -39,7 +40,9 @@ export async function renderOverview() {
                 ? `Last scanned: ${fmtDate(app.last_scanned)} · ${esc(app.scan_type || 'full')}`
                 : 'Never scanned'}
             </div>
-            <div class="severity-row">${gateBadge(app)} ${sevBadgeRow(app)}</div>
+            ${tiles
+              ? `<div class="project-sev-row">${sevTiles(app)}</div><div class="severity-row">${gateBadge(app)}</div>`
+              : `<div class="severity-row">${gateBadge(app)} ${sevBadgeRow(app)}</div>`}
             <div class="app-card-footer">
               ${app.scan_count} scan${app.scan_count !== 1 ? 's' : ''} total
             </div>
@@ -48,7 +51,7 @@ export async function renderOverview() {
     const ROLE = { frontend: 'Front end', backend: 'Back end', infra: 'Infrastructure', other: 'Other' };
     const projectSections = projects.map(p => {
       const cards = p.repos.map(r => byName.get(r.app)
-        ? `<div class="project-card-cell" style="display:flex;flex-direction:column">${makeCard(byName.get(r.app)).replace('class="app-card ', 'style="flex:1" class="app-card ')}<div style="font-size:12px;color:var(--text-muted);margin:4px 0 0 4px">${esc(ROLE[r.role] || r.role)}</div></div>`
+        ? `<div class="project-card-cell" style="display:flex;flex-direction:column">${makeCard(byName.get(r.app), true).replace('class="app-card ', 'style="flex:1" class="app-card ')}<div style="font-size:12px;color:var(--text-muted);margin:4px 0 0 4px">${esc(ROLE[r.role] || r.role)}</div></div>`
         : '').join('');
       return `<div class="section">
         <div class="section-title">
@@ -56,8 +59,10 @@ export async function renderOverview() {
           <button class="btn btn-sm" ${act('navigate', `#/projects/${encodeURIComponent(p.id)}`)}>STIG roll-up →</button>
         </div>
         ${p.description ? `<div style="font-size:13px;color:var(--text-muted);margin-bottom:10px">${esc(p.description)}</div>` : ''}
-        ${(p.external || []).length ? `<div style="font-size:12px;color:var(--text-dim);margin-bottom:10px">Third-party: ${p.external.map(x => esc(x.name)).join(', ')}</div>` : ''}
-        <div class="app-grid">${cards || '<div style="color:var(--text-muted)">No scanned repositories yet.</div>'}</div>
+        <div class="project-card-body">
+          <div class="app-grid">${cards || '<div style="color:var(--text-muted)">No scanned repositories yet.</div>'}</div>
+          ${cveSnapshot(p, Object.fromEntries(apps.map(a => [a.name, a])))}
+        </div>
       </div>`;
     }).join('');
 

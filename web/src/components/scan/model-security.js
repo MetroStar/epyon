@@ -8,16 +8,28 @@ export function buildPicklescanCard(scan) { return ''; } // merged into buildMod
 export function buildModelCardCard(scan) { return ''; }  // merged into buildModelSecurityCard
 
 export function buildModelSecurityCard(scan) {
-  // Enhanced to support 5 ML security layers - always show even if no findings
-  // Layer 14: picklescan (enhanced), Layer 15: modelcard
-  // Layer 18: model-provenance, Layer 19: inference-security, Layer 20: ml-runtime
+  // Supports 5 ML security layers - shown even with zero findings as long as
+  // at least one of them was actually requested for this scan (so a clean
+  // result still proves the layer ran). Layer 14: picklescan (enhanced),
+  // Layer 15: modelcard, Layer 18: model-provenance, Layer 19:
+  // inference-security, Layer 20: ml-runtime.
   const ps = scan.picklescan;
   const mc = scan.modelcard;
   const mp = scan.model_provenance;
   const is = scan.inference_security;
   const mr = scan.ml_runtime;
-  
-  // Always show the card to give visibility that ML security layers ran or are available
+
+  // Scans record which layers were requested (web UI layer picker, or the
+  // scan mode's default set — quick/stig never request ML layers). When
+  // present and none of 14/15/18/19/20 were requested, hide the whole card
+  // instead of rendering an empty "no ML layers detected" shell. Older
+  // scans without `layers_requested` fall back to the previous behaviour
+  // (always show) since we can't tell whether the layers were requested.
+  const ML_LAYER_NUMS = ['14', '15', '18', '19', '20'];
+  const requested = scan.layers_requested;
+  if (Array.isArray(requested) && !ML_LAYER_NUMS.some(n => requested.includes(n))) {
+    return '';
+  }
 
   // ── Layer 14: Enhanced Picklescan section ──
   let pickleSection = '';

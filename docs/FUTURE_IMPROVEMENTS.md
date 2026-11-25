@@ -110,6 +110,20 @@ header row, no sticky controls.
 
 ## 3. Hide tools that did not run
 
+> **Partially shipped in 3.86.0:** `layers_requested` is now recorded in `scan-metadata.json`
+> for every web UI-triggered scan (standard, container-image, local-model, and STIG
+> re-run), derived from the explicit Run Scan page layer picker or the scan mode's
+> default set (`SCAN_MODE_LAYER_DEFAULTS` in `jobs.py`, mirroring
+> `docs/scanning/SCAN_MATRIX.md`). The ML/AI Security card uses it: it no longer renders
+> at all when none of layers 14/15/18/19/20 were requested, instead of always showing
+> an empty shell. Not done: the same `not_requested` gating for SBOM/API
+> discovery/network discovery/misconfigurations cards (they still rely on the
+> "empty data → hide" heuristic, which doesn't distinguish "ran with zero findings"
+> from "never requested"); the per-tool `ran`/`failed`/`skipped`/`not_requested` state
+> in the parser and `tools_analyzed` filtering described below; CLI-triggered
+> (`epyon.sh`/`run-target-security-scan.sh`) scans still don't record `layers_requested`
+> at all, so they always fall back to the pre-existing heuristic.
+
 **Data available:** `tools_analyzed` (what the page shows today), per-layer
 `<layer>/status.json` (`status`: ok/failed/error/skipped + `reason`, already read by
 `_layer_status_notes` in `parsers.py`), and `layer-timing.json`. Several cards (SBOM, API

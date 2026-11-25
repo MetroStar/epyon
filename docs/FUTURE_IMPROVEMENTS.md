@@ -150,6 +150,21 @@ status.json".
 
 ## 5. Move STIG History & MTTR to the Metrics page
 
+> **Shipped in 3.88.0.** The "History & MTTR" view is now a collapsible "STIG Compliance"
+> section on the Metrics page (`buildStigComplianceSection()` in
+> `web/src/components/stig-compliance-section.js`, extracted from the old
+> `web/src/pages/stig-history.js` so the render code moved rather than copied). It keeps
+> its own app/STIG/range/status filters and sortable matrix — the Metrics page has no
+> page-level app filter today, so the section follows the same self-contained-picker
+> pattern already used by the MTTR panel's `#mttr-app-filter`, rather than a shared filter.
+> The STIG page's tab bar was removed (nothing else used it) in favor of a direct
+> "History & MTTR" link to the Metrics section. `#/stig?view=history` (with optional
+> `app`/`slug` params) redirects to `#/metrics?section=stig-history&stigApp=...` so old
+> links/bookmarks keep working; the target section auto-expands and scrolls into view.
+> `/api/stig/history` was already ETag-cached like the other metrics endpoints, and its
+> per-app computation cost matches what the dedicated page always paid, so no backend
+> change was needed. The `stig_na`/`stig_nr` split is untouched.
+
 **What exists:** the "History & MTTR" tab on the STIG page (`stig.js:114`, view
 `#/stig?view=history`) rendered by `web/src/pages/stig-history.js` (summary cards incl.
 Avg MTTR, per-control matrix with sortable MTTR column), backed by

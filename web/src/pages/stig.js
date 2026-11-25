@@ -108,16 +108,10 @@ export async function renderStig() {
         </div>
       </div>` : '';
 
-    const stigTabs = `
-      <div class="stig-tabs">
-        <button class="stig-tab active" ${act('navigate', '#/stig')}>Overview</button>
-        <button class="stig-tab" ${act('navigate', '#/stig?view=history')}>History &amp; MTTR</button>
-      </div>`;
-
     page.innerHTML = `
-      ${pageHeader(`STIG Compliance`, { actions: `<button class="btn btn-primary"
-          ${act('navigate', '#/new-scan')}>▶ Run STIG Scan</button>` })}
-      ${stigTabs}
+      ${pageHeader(`STIG Compliance`, { actions: `
+          <button class="btn btn-secondary" ${act('navigate', '#/metrics?section=stig-history')}>History &amp; MTTR</button>
+          <button class="btn btn-primary" ${act('navigate', '#/new-scan')}>▶ Run STIG Scan</button>` })}
       <p class="section-desc">
         Application Security Developer (AppSecDev) STIG and Crunchy Data PostgreSQL STIG
         compliance results. STIG scans run only when you trigger them.

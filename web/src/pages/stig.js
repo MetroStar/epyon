@@ -223,6 +223,7 @@ export async function renderStigViewer(scanId) {
         <div class="stig-viewer-count" style="display:flex;align-items:center;gap:12px">
           <span>${rows.length} control${rows.length !== 1 ? 's' : ''}</span>
           <button class="btn" id="stig-jira-bulk" ${act('openStigJiraModal', scanId)} ${_stigJiraSel.size ? '' : 'disabled'}>Add ${_stigJiraSel.size || ''} to Jira</button>
+          <button class="btn" id="stig-rerun-bulk" ${act('openStigRerun', scanId)} ${_stigJiraSel.size ? '' : 'disabled'} title="Reassess only the checked controls into a new scan">▶ Run STIG ${_stigJiraSel.size ? `(${_stigJiraSel.size})` : ''}</button>
           <button class="btn" id="stig-lock-bulk" ${act('openStigBulkLockModal', scanId)} ${_stigJiraSel.size ? '' : 'disabled'}>🔒 Lock ${_stigJiraSel.size || ''}</button>
         </div>
         <div class="stig-table-wrap">
@@ -258,7 +259,7 @@ export async function renderStigViewer(scanId) {
                     <td data-stop><input type="checkbox" aria-label="Select ${esc(c.vuln_id)}" ${_stigJiraSel.has(regKey) ? 'checked' : ''} ${actOn('click','stigJiraToggle', regKey, ARG.checked, ARG.shift)}></td>
                     <td><code class="stig-id">${esc(c.group_id || c.vuln_id)}</code></td>
                     <td><span class="stig-sev stig-sev-${esc(c.severity)}">${esc(c.severity || '—')}</span></td>
-                    <td><span class="${esc(STATUS_CLASS[c.status] || 'stig-status-nr')}">${esc(stigStatusLabel(c.status))}</span>${c.locked_by_human ? ' <span class="stig-lock-badge" title="Human-reviewed; locked until a listed path changes">🔒</span>' : ''}${c.locked_by_stability ? ' <span class="stig-lock-badge" title="No repository evidence found across repeated scans — not re-assessed by AI to save time/tokens until code changes">💤</span>' : ''}</td>
+                    <td><span class="${esc(STATUS_CLASS[c.status] || 'stig-status-nr')}">${esc(stigStatusLabel(c.status))}</span>${c.locked_by_human ? ' <span class="stig-lock-badge" title="Human-reviewed; locked until a listed path changes">🔒</span>' : ''}${c.carried_forward_from ? ` <span class="stig-lock-badge" title="Carried forward unchanged from ${esc(c.carried_forward_from)}">↪</span>` : ''}${c.locked_by_stability ? ' <span class="stig-lock-badge" title="No repository evidence found across repeated scans — not re-assessed by AI to save time/tokens until code changes">💤</span>' : ''}</td>
                     <td><span class="stig-confidence ${confClass}" title="${conf}/100">${conf}</span></td>
                     <td class="stig-title-cell">${esc(c.title)}</td>
                     ${stigNames.length > 1 ? `<td class="stig-stig-cell" title="${esc(c._stig_name)}">${esc(sname)}</td>` : ''}

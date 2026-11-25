@@ -55,6 +55,9 @@ def _build_stig_entries(scan_id: str, matched: Path) -> list[dict]:
                 "locked_by_human": bool(assessed.get("locked_by_human", False)),
                 "locked_by_stability": bool(assessed.get("locked_by_stability", False)),
                 "stable_count":    assessed.get("stable_count", 0),
+                "carried_forward_from": assessed.get("carried_forward_from"),
+                "reassessed":      assessed.get("reassessed"),
+                "rerun_failed":    bool(assessed.get("rerun_failed", False)),
                 **parsers.stig_record_fields(assessed, c),
             })
 

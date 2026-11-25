@@ -2450,6 +2450,16 @@ def _max_failed_batch_pct() -> float:
         return 10.0
 
 
+def _carry_forward(prev: dict[str, Any] | None, parent: str) -> dict[str, Any]:
+    """Copy an earlier assessment unchanged, noting the scan it was originally assessed in."""
+    if not prev:
+        return {
+            "status": "Not Reviewed", "confidence": 0,
+            "evidence": "Not assessed: no earlier result was available to carry forward.",
+        }
+    return {**prev, "carried_forward_from": prev.get("carried_forward_from") or parent}
+
+
 def _assess_stig(
     stig_data: dict[str, Any],
     stig_path: str,
@@ -2487,7 +2497,7 @@ def _assess_stig(
     
     # Collect additional context for AI assessments (limited to avoid context overflow)
     # These will be reduced further on retry if context_length_exceeded occurs
-    security_findings_context = collect_security_findings(scan_dir, max_findings=3)
+    security_findings_context = collect_security_findings(_RERUN["carry_dir"] if _RERUN else scan_dir, max_findings=3)
     suppression_rules_context = collect_suppression_rules(target_dir, max_rules=10)
     
     if security_findings_context:
@@ -2530,7 +2540,7 @@ def _assess_stig(
     result_cache = None
     cached_assessments = None
     assessment_generated_at = datetime.now(timezone.utc).isoformat()
-    if api_key and os.environ.get("EPYON_CACHE_DIR"):
+    if _RERUN is None and api_key and os.environ.get("EPYON_CACHE_DIR"):
         reuse_key = _stig_reuse_key(target_dir, {
             "app": app_name, "model": model, "endpoint": base_url,
             "stig": stig_data, "source_files": source_files, "manual_docs": manual_docs,
@@ -2557,6 +2567,15 @@ def _assess_stig(
                 except (KeyError, TypeError, ValueError, AttributeError) as error:
                     print(f"[WARNING] Invalid cached STIG assessment; reassessing: {error}", file=sys.stderr)
 
+    rerun = _RERUN
+    rerun_prev: dict[str, dict[str, Any]] = {}
+    rerun_selected: set[str] = set()
+    if rerun is not None:
+        if not api_key:
+            raise SystemExit("[ERROR] A STIG re-run needs the AI endpoint, but no API key or local endpoint is configured")
+        rerun_prev = load_previous_stig_results(rerun["carry_dir"], slug)
+        rerun_selected = rerun["only"] & {c["vuln_id"] for c in controls}
+
     if not api_key:
         for c in controls:
             assessments[c["vuln_id"]] = {
@@ -2575,6 +2594,9 @@ def _assess_stig(
                 }
             elif prior and prior.get("locked_by_human"):
                 assessments[c["vuln_id"]] = {**prior, "locked_by_previous": True}
+    elif rerun is not None and not rerun_selected:
+        assessments = {c["vuln_id"]: _carry_forward(rerun_prev.get(c["vuln_id"]), rerun["parent"]) for c in controls}
+        print(f"[INFO] [{slug}] No selected controls in this STIG; carried {len(assessments)} forward", file=sys.stderr)
     elif cached_assessments is not None:
         assessments = cached_assessments
         print(f"[INFO] [{slug}] Reusing {len(assessments)} complete assessments: exact source, model and context match", file=sys.stderr)
@@ -2594,9 +2616,12 @@ def _assess_stig(
         # Use all files (code + manual docs) for app profile to get complete picture
         all_files_for_profile = source_files + manual_docs
         app_profile = build_app_profile(app_name, all_files_for_profile)
-        applicable, applicability_reason, appl_pt, appl_ct = check_stig_applicability(
-            client, model, stig_data, app_profile
-        )
+        if rerun is not None:  # the earlier scan already established applicability
+            applicable, applicability_reason, appl_pt, appl_ct = True, "applicable in the earlier scan", 0, 0
+        else:
+            applicable, applicability_reason, appl_pt, appl_ct = check_stig_applicability(
+                client, model, stig_data, app_profile
+            )
         total_prompt_tokens     = appl_pt
         total_completion_tokens = appl_ct
         if not applicable:
@@ -2657,6 +2682,10 @@ def _assess_stig(
                 file=sys.stderr,
             )
 
+        if rerun is not None:
+            previous_assessments = dict(rerun_prev)
+            previous_scan_used = rerun["carry_dir"]
+
         # Human-reviewed entries published under docs/stig-reviews/ override the
         # previous scan's state: locked unless a listed path changed (MID-4534).
         previous_assessments.update(published_prior)
@@ -2687,6 +2716,13 @@ def _assess_stig(
         for ctrl in controls:
             vid    = ctrl["vuln_id"]
             prev   = previous_assessments.get(vid, {})
+            if rerun is not None:
+                # Explicit re-run: selected controls are reassessed even if frozen; the rest carry forward.
+                if vid in rerun_selected:
+                    controls_to_assess.append(ctrl)
+                else:
+                    frozen_assessments[vid] = _carry_forward(rerun_prev.get(vid), rerun["parent"])
+                continue
             frozen = compute_frozen_assessment(prev)
             if frozen is not None:
                 frozen_assessments[vid] = frozen
@@ -2920,7 +2956,12 @@ def _assess_stig(
                         assessments[vid]["stable_count"] = prev_for_vid.get("stable_count", 0) + 1
                     assessed_ids.add(vid)
             for c in batch:
-                if c["vuln_id"] not in assessed_ids:
+                if c["vuln_id"] not in assessed_ids and rerun is not None and rerun_prev.get(c["vuln_id"]):
+                    # A failed re-run must not replace a real earlier result with a placeholder.
+                    assessments[c["vuln_id"]] = {
+                        **_carry_forward(rerun_prev[c["vuln_id"]], rerun["parent"]), "rerun_failed": True,
+                    }
+                elif c["vuln_id"] not in assessed_ids:
                     assessments[c["vuln_id"]] = {
                         "status":     "Open",
                         "evidence":   FALLBACK_EVIDENCE,
@@ -2932,8 +2973,20 @@ def _assess_stig(
             assessments[vid]["reopened_reason"] = reason
     if api_key:
         for vid, prior in edit_prior.items():
+            if rerun is not None and vid not in rerun_selected:
+                continue
             if vid in assessments and not assessments[vid].get("human_edit"):
                 assessments[vid] = _load_edits().apply_outcome(prior, assessments[vid])
+
+    if rerun is not None:
+        stamp = {
+            "at": datetime.now(timezone.utc).isoformat(), "model": model,
+            "by": rerun["by"], "parent_scan_id": rerun["parent"],
+        }
+        for vid in rerun_selected:
+            if vid in assessments and not assessments[vid].get("rerun_failed"):
+                assessments[vid].pop("carried_forward_from", None)
+                assessments[vid]["reassessed"] = stamp
 
     # Write raw results
     results_path = scan_dir / f"stig-results-{slug}.json"
@@ -2944,6 +2997,8 @@ def _assess_stig(
         "reuse_key": reuse_key,
         "reused": cached_assessments is not None,
         "assessment_generated_at": assessment_generated_at,
+        **({"rerun": {"parent_scan_id": rerun["parent"], "controls": sorted(rerun_selected), "by": rerun["by"],
+                      "at": datetime.now(timezone.utc).isoformat(), "model": model}} if rerun is not None else {}),
         "token_usage": {
             "prompt_tokens":     total_prompt_tokens     if api_key else 0,
             "completion_tokens": total_completion_tokens if api_key else 0,
@@ -3043,6 +3098,10 @@ def _assess_stig(
         )
 
 
+# Set by main() for a --only run: {"only": set, "carry_dir": Path, "parent": str, "by": str}.
+_RERUN: dict[str, Any] | None = None
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="AI-powered STIG compliance assessment engine"
@@ -3074,7 +3133,28 @@ def main() -> None:
                              f"{LOCAL_BATCH_SIZE_DEFAULT} for self-hosted endpoints)")
     parser.add_argument("--delay",      type=float, default=1.0,
                         help="Seconds between API calls (default: 1.0)")
+    parser.add_argument("--only", default="",
+                        help="Comma-separated control ids (V-222425,V-222426). Reassess only these and "
+                             "carry every other control forward from --carry-from unchanged.")
+    parser.add_argument("--carry-from", default="",
+                        help="Previous scan directory whose stig-results-*.json seeds a --only run.")
+    parser.add_argument("--parent-scan-id", default="", help="Scan id recorded as the re-run's parent.")
+    parser.add_argument("--rerun-by", default="", help="Who requested the re-run (recorded in the results).")
     args = parser.parse_args()
+
+    global _RERUN
+    only_ids = [v.strip() for v in args.only.split(",") if v.strip()]
+    if only_ids:
+        carry_dir = Path(args.carry_from)
+        if not args.carry_from or not carry_dir.is_dir():
+            parser.error("--only requires --carry-from to be an existing scan directory")
+        bad = [v for v in only_ids if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{1,63}", v)]
+        if bad:
+            parser.error(f"invalid control id(s) in --only: {', '.join(bad)}")
+        _RERUN = {
+            "only": set(only_ids), "carry_dir": carry_dir,
+            "parent": args.parent_scan_id or carry_dir.name, "by": args.rerun_by,
+        }
 
     model    = os.environ.get("OPENAI_MODEL", args.model)
     api_key  = os.environ.get("OPENAI_API_KEY", "")
@@ -3243,7 +3323,14 @@ def main() -> None:
     print("", file=sys.stderr)
 
     # ── Process each applicable STIG ──────────────────────────────────────
+    processed = 0
     for stig_path, stig_data, slug, is_primary in applicable_stigs:
+        if _RERUN is not None:
+            if not (_RERUN["carry_dir"] / f"stig-results-{slug}.json").is_file():
+                print(f"[INFO] [{slug}] No earlier results to carry forward; skipped in this re-run", file=sys.stderr)
+                continue
+            is_primary = processed == 0
+        processed += 1
         print(f"[INFO] Processing: {stig_path.name}", file=sys.stderr)
 
         _assess_stig(
@@ -3265,7 +3352,7 @@ def main() -> None:
         )
     
     # ML controls are a separate assessment; the STIG scan runs them only on request.
-    if os.environ.get("EPYON_STIG_ML_CONTROLS", "").lower() == "true":
+    if _RERUN is None and os.environ.get("EPYON_STIG_ML_CONTROLS", "").lower() == "true":
         print("", file=sys.stderr)
         print("[INFO] Processing ML Security Controls", file=sys.stderr)
         assess_ml_controls(

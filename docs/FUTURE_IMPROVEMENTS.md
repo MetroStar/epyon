@@ -43,6 +43,8 @@ None blocking. Items still need reviewer sign-off on viability.
 
 ## 1. Run STIG for selected control(s)
 
+> **Shipped in 3.84.0** (script `--only`, `POST /api/scans/{id}/stig-run`, toolbar and drawer buttons). Not done: the collapsible group for re-run scans in history (they carry a "STIG re-run" label).
+
 **Goal:** a "Run STIG" button in the STIG Findings toolbar (acts on checked rows) and in
 the right-hand drawer (acts on that one control). It reassesses only those controls and
 produces a new scan that carries forward all unchanged findings from the previous run.

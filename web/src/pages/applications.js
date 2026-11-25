@@ -131,6 +131,7 @@ export function buildScanTimelineItem(s, name) {
       <div class="scan-timeline-content">
         <div class="scan-timeline-title">
           ${esc(scanTypeLabel(s.scan_type))} scan
+          ${s.parent_scan_id ? `<span class="badge" title="Controls re-run from ${esc(s.parent_scan_id)}">STIG re-run</span>` : ''}
           <span>${gateBadge(s)} ${sevBadgeRow(s)}</span>
           ${hfStatusBadge(s)}
           ${s.ci_source ? `<span class="badge badge-ci" title="From GitHub Actions · ${esc(s.ci_source.repo)}${s.ci_source.branch ? ' · ' + esc(s.ci_source.branch) : ''}">GH Actions</span>` : ''}

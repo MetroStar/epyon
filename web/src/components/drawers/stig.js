@@ -97,9 +97,13 @@ export function openStigViewerDetail(regKey) {
 
       <div style="margin-top:20px;border-top:1px solid var(--border);padding-top:16px">
         <button class="btn btn-primary" ${act('openStigJiraModal', scanId, [regKey])}>Add to Jira</button>
+        <button class="btn" ${act('openStigRerun', scanId, [regKey])} title="Reassess only this control into a new scan">Re-run this control</button>
         <span id="stig-jira-drawer-status" style="margin-left:10px;font-size:12px"></span>
       </div>
 
+      ${c.carried_forward_from ? `<p style="margin-top:14px;font-size:12px;color:var(--text-muted)">↪ Carried forward unchanged from <a href="#/stig-viewer/${encodeURIComponent(c.carried_forward_from)}">${esc(c.carried_forward_from)}</a>.</p>` : ''}
+      ${c.reassessed ? `<p style="margin-top:14px;font-size:12px;color:var(--text-muted)">Re-run${c.reassessed.by ? ` by ${esc(c.reassessed.by)}` : ''}${c.reassessed.at ? ` on ${esc(String(c.reassessed.at).slice(0, 16).replace('T', ' '))} UTC` : ''}${c.reassessed.model ? ` with ${esc(c.reassessed.model)}` : ''}; branched from ${esc(c.reassessed.parent_scan_id || 'the previous scan')}.</p>` : ''}
+      ${c.rerun_failed ? '<p style="margin-top:14px;font-size:12px;color:var(--critical)">The re-run did not finish for this control, so the earlier result is kept.</p>' : ''}
       <div class="stig-override-section" style="margin-top:20px;border-top:1px solid var(--border);padding-top:16px">
         <div class="finding-detail-label" style="margin-bottom:10px">
           Assessment (editable)

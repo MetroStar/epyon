@@ -297,13 +297,13 @@
     loading: () => loading,
     pageHeader: () => pageHeader
   });
-  function pageHeader(title, { subtitle = "", actions = "" } = {}) {
+  function pageHeader(title, { subtitle = "", actions: actions2 = "" } = {}) {
     return `<div class="page-header">
     <div class="page-header-main">
       <h1>${title}</h1>
       ${subtitle ? `<p class="page-subtitle">${subtitle}</p>` : ""}
     </div>
-    ${actions ? `<div class="page-actions">${actions}</div>` : ""}
+    ${actions2 ? `<div class="page-actions">${actions2}</div>` : ""}
   </div>`;
   }
   function loading(label = "Loading…") {
@@ -564,11 +564,11 @@
       }
       return data;
     },
-    async _post(url, body) {
+    async _post(url, body2) {
       const r = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body)
+        body: JSON.stringify(body2)
       });
       if (!r.ok) {
         let detail = r.statusText;
@@ -586,11 +586,11 @@
       }
       return r.json();
     },
-    async _put(url, body) {
+    async _put(url, body2) {
       const r = await fetch(url, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body)
+        body: JSON.stringify(body2)
       });
       if (!r.ok) {
         let detail = r.statusText;
@@ -626,11 +626,11 @@
     getProjects() {
       return this._get("/api/projects", false);
     },
-    createProject(body) {
-      return this._post("/api/projects", body);
+    createProject(body2) {
+      return this._post("/api/projects", body2);
     },
-    updateProject(id, body) {
-      return this._put(`/api/projects/${encodeURIComponent(id)}`, body);
+    updateProject(id, body2) {
+      return this._put(`/api/projects/${encodeURIComponent(id)}`, body2);
     },
     deleteProject(id) {
       return this._delete(`/api/projects/${encodeURIComponent(id)}`);
@@ -687,11 +687,11 @@
       return this._get("/api/github/sync");
     },
     triggerScan(target, scanType, runGarak, runStig = true, layers = null) {
-      const body = { target, scan_type: scanType };
-      if (runGarak) body.run_garak = true;
-      if (runStig) body.run_stig = true;
-      if (layers && layers.length) body.layers = layers;
-      return this._post("/api/scans", body);
+      const body2 = { target, scan_type: scanType };
+      if (runGarak) body2.run_garak = true;
+      if (runStig) body2.run_stig = true;
+      if (layers && layers.length) body2.layers = layers;
+      return this._post("/api/scans", body2);
     },
     triggerScanUpload(file, scanType, runGarak, runStig = true, onProgress = null, layers = null) {
       const form = new FormData();
@@ -822,11 +822,11 @@
     getAppIssoSummary(name) {
       return this._post(`/api/applications/${encodeURIComponent(name)}/isso-summary`, {});
     },
-    async exportSummaryDocx(body) {
+    async exportSummaryDocx(body2) {
       const r = await fetch("/api/export/summary-docx", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body)
+        body: JSON.stringify(body2)
       });
       if (!r.ok) {
         let detail = r.statusText;
@@ -882,8 +882,8 @@
     getStigJiraContext(id) {
       return this._get(`/api/scans/${encodeURIComponent(id)}/stig-jira-context`, false);
     },
-    createStigJiraTickets(id, body) {
-      return this._post(`/api/scans/${encodeURIComponent(id)}/stig-jira-tickets`, body);
+    createStigJiraTickets(id, body2) {
+      return this._post(`/api/scans/${encodeURIComponent(id)}/stig-jira-tickets`, body2);
     },
     createJiraTickets(id, fingerprints, epicChoice) {
       return this._post(`/api/scans/${encodeURIComponent(id)}/jira-tickets`, {
@@ -971,7 +971,7 @@
     if (host.dataset.loaded && !force) return;
     host.dataset.loaded = "1";
     const base = host.dataset.base;
-    const body = host.querySelector(".poam-body");
+    const body2 = host.querySelector(".poam-body");
     try {
       const res = await fetch(`${base}/poam?preview=true`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -991,7 +991,7 @@
         <span class="poam-sla-msg" style="color:var(--text-muted)"></span>
       </div>`;
       if (!d.total) {
-        body.innerHTML = poamSourceLine(d.sources, d.notes) + slaForm + '<div style="color:var(--text-muted)">No open STIG controls or Critical/High CVEs — nothing to add to a POA&amp;M.</div>';
+        body2.innerHTML = poamSourceLine(d.sources, d.notes) + slaForm + '<div style="color:var(--text-muted)">No open STIG controls or Critical/High CVEs — nothing to add to a POA&amp;M.</div>';
         return;
       }
       const cols = ["POA&M ID", "Weakness Identifier", "Weakness Name", "Raw Severity", "Detection Source", "Affected Component", "Remediation / Mitigation", "Scheduled Completion Date", "Status"];
@@ -1014,7 +1014,7 @@
         }
         return `<span title="${esc(r[c] ?? "")}">${esc(clip(r[c]))}</span>`;
       };
-      body.innerHTML = poamSourceLine(d.sources, d.notes) + slaForm + `
+      body2.innerHTML = poamSourceLine(d.sources, d.notes) + slaForm + `
       <div style="overflow-x:auto;max-height:${host.tagName === "DETAILS" ? "480px" : "70vh"};overflow-y:auto">
         <table>
           <thead><tr>${cols.map((c) => `<th>${esc(c)}</th>`).join("")}</tr></thead>
@@ -1024,7 +1024,7 @@
       <div style="margin-top:8px;color:var(--text-muted);font-size:12px">Dates default to the SLA above, counted from the scan date. Pick a date to set it manually (bold); it is kept across rescans. Point of contact, resources and milestones are left blank in the CSV for you to complete.</div>`;
     } catch (e) {
       host.dataset.loaded = "";
-      body.textContent = `Could not load POA&M preview (${e.message}).`;
+      body2.textContent = `Could not load POA&M preview (${e.message}).`;
     }
   };
   async function poamSend(url, method, payload) {
@@ -1328,7 +1328,7 @@ jobs:
     host.appendChild(el);
     setTimeout(dismiss, kind === "error" ? 1e4 : 6e3);
   }
-  function confirmDialog({ title, body, confirmLabel = "Confirm", cancelLabel = "Cancel", danger = true }) {
+  function confirmDialog({ title, body: body2, confirmLabel = "Confirm", cancelLabel = "Cancel", danger = true }) {
     return new Promise((resolve2) => {
       const overlay = document.createElement("div");
       overlay.className = "modal-overlay";
@@ -1342,7 +1342,7 @@ jobs:
         </div>
       </div>`;
       overlay.querySelector("#confirm-title").textContent = title;
-      overlay.querySelector(".confirm-body").textContent = body;
+      overlay.querySelector(".confirm-body").textContent = body2;
       overlay.querySelector("[data-act=cancel]").textContent = cancelLabel;
       overlay.querySelector("[data-act=ok]").textContent = confirmLabel;
       let done = false;
@@ -1909,7 +1909,7 @@ epyon install-workflow</pre>
   async function saveJiraConfig() {
     const statusEl = document.getElementById("jira-status");
     if (statusEl) statusEl.textContent = "Saving…";
-    const body = {
+    const body2 = {
       base_url: (document.getElementById("jira-url")?.value || "").trim(),
       email: (document.getElementById("jira-email")?.value || "").trim(),
       project_key: (document.getElementById("jira-project")?.value || "").trim(),
@@ -1919,7 +1919,7 @@ epyon install-workflow</pre>
       // Always enabled - not configurable
     };
     try {
-      await api.saveJiraConfig(body);
+      await api.saveJiraConfig(body2);
       if (statusEl) statusEl.textContent = "Saved.";
     } catch (e) {
       if (statusEl) statusEl.textContent = "Error: " + e.message;
@@ -2650,6 +2650,7 @@ epyon install-workflow</pre>
         <div class="stig-viewer-count" style="display:flex;align-items:center;gap:12px">
           <span>${rows.length} control${rows.length !== 1 ? "s" : ""}</span>
           <button class="btn" id="stig-jira-bulk" ${act("openStigJiraModal", scanId)} ${_stigJiraSel.size ? "" : "disabled"}>Add ${_stigJiraSel.size || ""} to Jira</button>
+          <button class="btn" id="stig-rerun-bulk" ${act("openStigRerun", scanId)} ${_stigJiraSel.size ? "" : "disabled"} title="Reassess only the checked controls into a new scan">▶ Run STIG ${_stigJiraSel.size ? `(${_stigJiraSel.size})` : ""}</button>
           <button class="btn" id="stig-lock-bulk" ${act("openStigBulkLockModal", scanId)} ${_stigJiraSel.size ? "" : "disabled"}>🔒 Lock ${_stigJiraSel.size || ""}</button>
         </div>
         <div class="stig-table-wrap">
@@ -2685,7 +2686,7 @@ epyon install-workflow</pre>
                     <td data-stop><input type="checkbox" aria-label="Select ${esc(c.vuln_id)}" ${_stigJiraSel.has(regKey) ? "checked" : ""} ${actOn("click", "stigJiraToggle", regKey, ARG.checked, ARG.shift)}></td>
                     <td><code class="stig-id">${esc(c.group_id || c.vuln_id)}</code></td>
                     <td><span class="stig-sev stig-sev-${esc(c.severity)}">${esc(c.severity || "—")}</span></td>
-                    <td><span class="${esc(STATUS_CLASS2[c.status] || "stig-status-nr")}">${esc(stigStatusLabel(c.status))}</span>${c.locked_by_human ? ' <span class="stig-lock-badge" title="Human-reviewed; locked until a listed path changes">🔒</span>' : ""}${c.locked_by_stability ? ' <span class="stig-lock-badge" title="No repository evidence found across repeated scans — not re-assessed by AI to save time/tokens until code changes">💤</span>' : ""}</td>
+                    <td><span class="${esc(STATUS_CLASS2[c.status] || "stig-status-nr")}">${esc(stigStatusLabel(c.status))}</span>${c.locked_by_human ? ' <span class="stig-lock-badge" title="Human-reviewed; locked until a listed path changes">🔒</span>' : ""}${c.carried_forward_from ? ` <span class="stig-lock-badge" title="Carried forward unchanged from ${esc(c.carried_forward_from)}">↪</span>` : ""}${c.locked_by_stability ? ' <span class="stig-lock-badge" title="No repository evidence found across repeated scans — not re-assessed by AI to save time/tokens until code changes">💤</span>' : ""}</td>
                     <td><span class="stig-confidence ${confClass}" title="${conf}/100">${conf}</span></td>
                     <td class="stig-title-cell">${esc(c.title)}</td>
                     ${stigNames.length > 1 ? `<td class="stig-stig-cell" title="${esc(c._stig_name)}">${esc(sname)}</td>` : ""}
@@ -3255,20 +3256,20 @@ epyon install-workflow</pre>
     overlay.className = "modal-overlay";
     overlay.innerHTML = `<div class="modal-container modal-md"><div id="stig-jira-body">${loading()}</div></div>`;
     document.body.appendChild(overlay);
-    const body = overlay.querySelector("#stig-jira-body");
+    const body2 = overlay.querySelector("#stig-jira-body");
     let ctx;
     try {
       ctx = await api.getStigJiraContext(scanId);
     } catch (e) {
-      body.innerHTML = `<p style="color:var(--critical)">${esc(e.message)}</p><button class="btn" ${act("stigJiraClose")}>Close</button>`;
+      body2.innerHTML = `<p style="color:var(--critical)">${esc(e.message)}</p><button class="btn" ${act("stigJiraClose")}>Close</button>`;
       return;
     }
     if (!ctx.jira_configured) {
-      body.innerHTML = `<p style="color:var(--text)">Jira is not configured. Set it up on the Jira page first.</p><button class="btn" ${act("stigJiraClose")}>Close</button>`;
+      body2.innerHTML = `<p style="color:var(--text)">Jira is not configured. Set it up on the Jira page first.</p><button class="btn" ${act("stigJiraClose")}>Close</button>`;
       return;
     }
     const n = controls.length;
-    body.innerHTML = `
+    body2.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
       <h2 style="color:var(--text);margin:0">Add ${n} STIG control${n === 1 ? "" : "s"} to Jira</h2>
       <button class="btn" ${act("stigJiraClose")} style="padding:6px 12px">✕</button>
@@ -3447,8 +3448,8 @@ epyon install-workflow</pre>
     _jiraQuickCtx = null;
   }
   async function jiraEpicModalLoad(scanId) {
-    const body = document.getElementById("jira-epic-modal-body");
-    if (body) body.innerHTML = loading();
+    const body2 = document.getElementById("jira-epic-modal-body");
+    if (body2) body2.innerHTML = loading();
     try {
       const epics = await api.getScanJiraEpics(scanId);
       _jiraEpicModalState = {
@@ -3462,7 +3463,7 @@ epyon install-workflow</pre>
       };
       renderJiraEpicModalBody();
     } catch (error) {
-      if (body) body.innerHTML = `<div class="alert alert-warning">Could not load existing Epics: ${esc(error.message)}. You can still create tickets unassigned or create a new Epic.</div>`;
+      if (body2) body2.innerHTML = `<div class="alert alert-warning">Could not load existing Epics: ${esc(error.message)}. You can still create tickets unassigned or create a new Epic.</div>`;
       _jiraEpicModalState = {
         existing: [],
         suggested: [],
@@ -3522,11 +3523,11 @@ epyon install-workflow</pre>
     }
   }
   function renderJiraEpicModalBody() {
-    const body = document.getElementById("jira-epic-modal-body");
-    if (!body) return;
+    const body2 = document.getElementById("jira-epic-modal-body");
+    if (!body2) return;
     const state = _jiraEpicModalState;
     const hasIssueTypes = state.issueTypes.length > 0;
-    body.innerHTML = `
+    body2.innerHTML = `
     <div style="display:grid;gap:14px">
       <div>
         <label class="field-label">Ticket type</label>
@@ -5213,9 +5214,13 @@ epyon install-workflow</pre>
 
       <div style="margin-top:20px;border-top:1px solid var(--border);padding-top:16px">
         <button class="btn btn-primary" ${act("openStigJiraModal", scanId, [regKey])}>Add to Jira</button>
+        <button class="btn" ${act("openStigRerun", scanId, [regKey])} title="Reassess only this control into a new scan">Re-run this control</button>
         <span id="stig-jira-drawer-status" style="margin-left:10px;font-size:12px"></span>
       </div>
 
+      ${c.carried_forward_from ? `<p style="margin-top:14px;font-size:12px;color:var(--text-muted)">↪ Carried forward unchanged from <a href="#/stig-viewer/${encodeURIComponent(c.carried_forward_from)}">${esc(c.carried_forward_from)}</a>.</p>` : ""}
+      ${c.reassessed ? `<p style="margin-top:14px;font-size:12px;color:var(--text-muted)">Re-run${c.reassessed.by ? ` by ${esc(c.reassessed.by)}` : ""}${c.reassessed.at ? ` on ${esc(String(c.reassessed.at).slice(0, 16).replace("T", " "))} UTC` : ""}${c.reassessed.model ? ` with ${esc(c.reassessed.model)}` : ""}; branched from ${esc(c.reassessed.parent_scan_id || "the previous scan")}.</p>` : ""}
+      ${c.rerun_failed ? '<p style="margin-top:14px;font-size:12px;color:var(--critical)">The re-run did not finish for this control, so the earlier result is kept.</p>' : ""}
       <div class="stig-override-section" style="margin-top:20px;border-top:1px solid var(--border);padding-top:16px">
         <div class="finding-detail-label" style="margin-bottom:10px">
           Assessment (editable)
@@ -5582,14 +5587,14 @@ epyon install-workflow</pre>
         </div>
       </div>`;
   }
-  async function patchOverride(scanId, body, msgEl, done) {
+  async function patchOverride(scanId, body2, msgEl, done) {
     msgEl.textContent = "Saving…";
     msgEl.className = "stig-override-msg";
     try {
       const res = await fetch(`/api/scans/${encodeURIComponent(scanId)}/stig-override`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body)
+        body: JSON.stringify(body2)
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({ detail: res.statusText }));
@@ -5855,7 +5860,7 @@ epyon install-workflow</pre>
       app: row.querySelector(".project-repo-app").value.trim(),
       role: row.querySelector(".project-repo-role").value
     })).filter((r) => r.app);
-    const body = {
+    const body2 = {
       name: document.getElementById("project-name").value.trim(),
       description: document.getElementById("project-desc").value.trim(),
       jira_project_key: document.getElementById("project-jira").value.trim(),
@@ -5867,7 +5872,7 @@ epyon install-workflow</pre>
       })).filter((x) => x.name)
     };
     try {
-      await (id ? api.updateProject(id, body) : api.createProject(body));
+      await (id ? api.updateProject(id, body2) : api.createProject(body2));
     } catch (e) {
       document.getElementById("project-modal-error").textContent = e.detail || e.message;
       return;
@@ -6023,21 +6028,21 @@ epyon install-workflow</pre>
       document.addEventListener("keydown", _summaryModalKey);
     }
     document.getElementById("summary-modal-title").textContent = title;
-    const body = document.getElementById("summary-modal-body");
-    body.innerHTML = bodyHtml;
-    return body;
+    const body2 = document.getElementById("summary-modal-body");
+    body2.innerHTML = bodyHtml;
+    return body2;
   }
   async function _runOverviewSummary(kind) {
     const cfg = _OVERVIEW_SUMMARY_KINDS[kind];
-    const body = _openSummaryModal(cfg.title, _summaryLoadingHtml(cfg.label));
+    const body2 = _openSummaryModal(cfg.title, _summaryLoadingHtml(cfg.label));
     try {
       const result = await cfg.call();
       _overviewSummaryCache[kind] = result.summary;
       if (!document.getElementById("summary-modal")) return;
-      body.innerHTML = _summaryResultHtml(result.summary, null, cfg.fn, cfg.pdf, cfg.docx);
+      body2.innerHTML = _summaryResultHtml(result.summary, null, cfg.fn, cfg.pdf, cfg.docx);
     } catch (e) {
       if (!document.getElementById("summary-modal")) return;
-      body.innerHTML = _summaryResultHtml(null, e.message || "Generation failed", cfg.fn, cfg.pdf, cfg.docx);
+      body2.innerHTML = _summaryResultHtml(null, e.message || "Generation failed", cfg.fn, cfg.pdf, cfg.docx);
     }
   }
   async function generateOverviewExecSummary() {
@@ -6060,17 +6065,17 @@ epyon install-workflow</pre>
   }
   async function exportSummaryDocx(which) {
     const { exec, tech, isso } = _overviewSummaryCache;
-    const body = {
+    const body2 = {
       exec_summary: which === "exec" ? exec || null : null,
       tech_summary: which === "tech" ? tech || null : null,
       isso_summary: which === "isso" ? isso || null : null
     };
-    if (!body.exec_summary && !body.tech_summary && !body.isso_summary) return;
+    if (!body2.exec_summary && !body2.tech_summary && !body2.isso_summary) return;
     try {
       const resp = await fetch("/api/export/summary-docx", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body)
+        body: JSON.stringify(body2)
       });
       if (!resp.ok) throw new Error(`Server error ${resp.status}`);
       const blob = await resp.blob();
@@ -6119,18 +6124,18 @@ epyon install-workflow</pre>
     </div>`;
   }
   async function generateAppIssoSummary(name) {
-    const body = _openSummaryModal(`ISSO Compliance Brief — ${name}`, _summaryLoadingHtml("ISSO compliance brief"));
+    const body2 = _openSummaryModal(`ISSO Compliance Brief — ${name}`, _summaryLoadingHtml("ISSO compliance brief"));
     const fns = [["generateAppIssoSummary", name], ["exportAppIssoSummaryPdf", name], ["exportAppIssoSummaryDocx", name]];
     try {
       const result = await api.getAppIssoSummary(name);
       const text = result.summary || "";
       _appIssoCache[name] = text;
       if (!document.getElementById("summary-modal")) return;
-      body.innerHTML = _summaryResultHtml(text, null, ...fns);
+      body2.innerHTML = _summaryResultHtml(text, null, ...fns);
     } catch (e) {
       _appIssoCache[name] = null;
       if (!document.getElementById("summary-modal")) return;
-      body.innerHTML = _summaryResultHtml(null, e.message || "Generation failed", ...fns);
+      body2.innerHTML = _summaryResultHtml(null, e.message || "Generation failed", ...fns);
     }
   }
   function exportAppIssoSummaryPdf(name) {
@@ -6437,6 +6442,7 @@ epyon install-workflow</pre>
       <div class="scan-timeline-content">
         <div class="scan-timeline-title">
           ${esc(scanTypeLabel(s.scan_type))} scan
+          ${s.parent_scan_id ? `<span class="badge" title="Controls re-run from ${esc(s.parent_scan_id)}">STIG re-run</span>` : ""}
           <span>${gateBadge(s)} ${sevBadgeRow(s)}</span>
           ${hfStatusBadge(s)}
           ${s.ci_source ? `<span class="badge badge-ci" title="From GitHub Actions · ${esc(s.ci_source.repo)}${s.ci_source.branch ? " · " + esc(s.ci_source.branch) : ""}">GH Actions</span>` : ""}
@@ -7086,8 +7092,8 @@ epyon install-workflow</pre>
   }
   function cveBulkRenderForm() {
     const m = _cveBulk.modal;
-    const body = document.getElementById("cve-bulk-body");
-    if (!body) return;
+    const body2 = document.getElementById("cve-bulk-body");
+    if (!body2) return;
     const total = m.groups.reduce((n, g) => n + g.eligible.length, 0);
     const types = m.issueTypes.length ? m.issueTypes : [m.issueType];
     const groupHtml = m.groups.map((g, i) => {
@@ -7107,7 +7113,7 @@ epyon install-workflow</pre>
             ${actOn("input", "cveBulkEpicTyped", ARG.el)}></label>
       </div>${sk}</div>`;
     }).join("");
-    body.innerHTML = `
+    body2.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
       <h2 style="color:var(--text);margin:0">Create Jira tickets for ${esc(_cveBulk.data.query)}</h2>
       <button class="btn" ${act("cveBulkClose")} style="padding:6px 12px">✕</button>
@@ -7158,14 +7164,14 @@ epyon install-workflow</pre>
       return;
     }
     m.running = true;
-    const body = document.getElementById("cve-bulk-body");
+    const body2 = document.getElementById("cve-bulk-body");
     const results = [];
     for (const [i, g] of m.groups.entries()) {
       if (!g.eligible.length) {
         results.push({ g, created: 0, existing: 0, failed: 0, skipped: g.findings.length, note: g.error || g.skipped[0]?.reason || "" });
         continue;
       }
-      if (body) body.innerHTML = `<p>Creating tickets for ${esc(g.entry.app_name)} (${i + 1} of ${m.groups.length})…</p>${loading()}`;
+      if (body2) body2.innerHTML = `<p>Creating tickets for ${esc(g.entry.app_name)} (${i + 1} of ${m.groups.length})…</p>${loading()}`;
       const r = { g, created: 0, existing: 0, failed: 0, skipped: g.skipped.length, note: "", keys: [] };
       try {
         let fingerprints = g.eligible.map((x) => x.fingerprint);
@@ -7211,12 +7217,12 @@ epyon install-workflow</pre>
     cveBulkRenderSummary(results);
   }
   function cveBulkRenderSummary(results) {
-    const body = document.getElementById("cve-bulk-body");
-    if (!body) return;
+    const body2 = document.getElementById("cve-bulk-body");
+    if (!body2) return;
     const rows = results.map((r) => `<tr>
       <td>${esc(r.g.entry.app_name)}</td><td>${esc(r.created)}</td><td>${esc(r.existing)}</td>
       <td>${esc(r.failed)}</td><td>${esc(r.skipped)}</td><td>${esc(r.note || "")}</td></tr>`).join("");
-    body.innerHTML = `
+    body2.innerHTML = `
     <h2 style="color:var(--text);margin:0 0 12px">Jira tickets</h2>
     <div class="table-container"><table>
       <thead><tr><th scope="col">Application</th><th scope="col">Created</th><th scope="col">Existing</th><th scope="col">Failed</th><th scope="col">Skipped</th><th scope="col">Reason</th></tr></thead>
@@ -11183,7 +11189,7 @@ ${evidence.substring(0, 200)}${evidence.length > 200 ? "..." : ""}` : ""
     showDestructiveModal: () => showDestructiveModal,
     toggleDownloadMenu: () => toggleDownloadMenu
   });
-  function showDestructiveModal({ title, body, target, confirmLabel = "Delete", onConfirm }) {
+  function showDestructiveModal({ title, body: body2, target, confirmLabel = "Delete", onConfirm }) {
     const overlay = document.createElement("div");
     overlay.className = "modal-overlay";
     overlay.innerHTML = `
@@ -11196,7 +11202,7 @@ ${evidence.substring(0, 200)}${evidence.length > 200 ? "..." : ""}` : ""
         </svg>
         <span id="modal-title">${esc(title)}</span>
       </h2>
-      <p>${esc(body)}</p>
+      <p>${esc(body2)}</p>
       ${target ? `<div class="modal-target">${esc(target)}</div>` : ""}
       <div class="modal-actions">
         <button class="btn" id="modal-cancel">Cancel</button>
@@ -12350,6 +12356,143 @@ Frontend Cache:
     if (el) el.classList.toggle("collapsed");
   }
 
+  // src/pages/stig-rerun.js
+  var stig_rerun_exports = {};
+  __export(stig_rerun_exports, {
+    openStigRerun: () => openStigRerun,
+    stigRerunClose: () => stigRerunClose,
+    stigRerunSubmit: () => stigRerunSubmit
+  });
+  var _running = /* @__PURE__ */ new Map();
+  var _state = null;
+  function closeModal() {
+    document.querySelector(".modal-overlay")?.remove();
+    _state = null;
+  }
+  function stigRerunClose() {
+    closeModal();
+  }
+  function body(html) {
+    const el = document.getElementById("stig-rerun-body");
+    if (el) el.innerHTML = html;
+  }
+  function shell(title) {
+    document.querySelector(".modal-overlay")?.remove();
+    const overlay = document.createElement("div");
+    overlay.className = "modal-overlay";
+    overlay.innerHTML = `<div class="modal-container modal-md">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <h2 style="color:var(--text);margin:0">${esc(title)}</h2>
+      <button class="btn" ${act("stigRerunClose")} style="padding:6px 12px" aria-label="Close">✕</button>
+    </div>
+    <div id="stig-rerun-body"></div>
+  </div>`;
+    document.body.appendChild(overlay);
+    overlay.addEventListener("click", (e) => {
+      if (e.target === overlay) closeModal();
+    });
+  }
+  function actions(primary) {
+    return `<div style="display:flex;justify-content:flex-end;gap:10px;margin-top:14px">
+    <button class="btn" ${act("stigRerunClose")}>Cancel</button>${primary || ""}</div>`;
+  }
+  function idList(ids) {
+    const shown = ids.slice(0, 8).map((v) => `<code>${esc(v)}</code>`).join(", ");
+    return shown + (ids.length > 8 ? ` and ${ids.length - 8} more` : "");
+  }
+  function openStigRerun(scanId, regKeys) {
+    const keys = Array.isArray(regKeys) && regKeys.length ? regKeys : [..._stigJiraSel];
+    const controls = keys.map((k) => _stigRegistry.get(k)?.c).filter(Boolean);
+    if (!controls.length) return;
+    _state = { scanId, keys, ids: [...new Set(controls.map((c) => c.vuln_id))], opts: {} };
+    shell(`Run STIG for ${_state.ids.length} control${_state.ids.length === 1 ? "" : "s"}`);
+    body(`
+    <p style="font-size:13px;color:var(--text);margin:0 0 8px">${idList(_state.ids)}</p>
+    <p style="font-size:13px;color:var(--text-muted);margin:0">Only these controls are reassessed by the AI. The result is saved as a
+    new scan; every other control is carried forward unchanged and the scan you are viewing is left as it is.</p>
+    ${actions(`<button class="btn btn-primary" ${act("stigRerunSubmit")}>Run STIG</button>`)}`);
+  }
+  async function stigRerunSubmit(extra) {
+    if (!_state) return;
+    Object.assign(_state.opts, extra || {});
+    const { scanId, ids, keys, opts } = _state;
+    body('<p style="font-size:13px;color:var(--text-muted)">Starting…</p>');
+    let res, data = {};
+    try {
+      res = await fetch(`/api/scans/${encodeURIComponent(scanId)}/stig-run`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ vuln_ids: ids, ...opts })
+      });
+      data = await res.json().catch(() => ({}));
+    } catch (e) {
+      body(`<p style="color:var(--critical);font-size:13px">${esc(e.message)}</p>${actions()}`);
+      return;
+    }
+    if (res.status === 409 && data.code === "newer_scan") {
+      body(`<p style="font-size:13px;color:var(--text)">${esc(data.detail)}</p>
+      <p style="font-size:12px;color:var(--text-muted)">Carried-forward controls come from the scan the re-run starts from.</p>
+      ${actions(`<button class="btn btn-primary" ${act("stigRerunSubmit", { use_latest: true })}>Use newer scan</button>`)}`);
+      return;
+    }
+    if (res.status === 409 && data.code === "locked_controls") {
+      body(`<p style="font-size:13px;color:var(--text)">${esc(data.detail)}</p>
+      <p style="font-size:13px">${idList(data.controls || [])}</p>
+      ${actions(`<button class="btn btn-primary" ${act("stigRerunSubmit", { confirm_override: true })}>Override locked control${(data.controls || []).length === 1 ? "" : "s"}</button>`)}`);
+      return;
+    }
+    if (!res.ok) {
+      body(`<p style="color:var(--critical);font-size:13px">${esc(data.detail || res.statusText)}</p>${actions()}`);
+      return;
+    }
+    keys.forEach((k) => _running.set(k, data.job_id));
+    markRows();
+    poll(data.job_id, keys);
+  }
+  function markRows() {
+    _running.forEach((_, key) => {
+      const [vid, slug] = key.split("__");
+      const cell = document.querySelector(`#stig-row-${CSS.escape(vid)}-${CSS.escape(slug)} .stig-id`);
+      if (cell && !cell.parentElement.querySelector(".stig-running")) {
+        cell.insertAdjacentHTML("afterend", ' <span class="stig-running badge" title="Re-run in progress">⟳ re-running</span>');
+      }
+    });
+  }
+  async function poll(jobId, keys) {
+    const jobsBox = () => document.getElementById("stig-rerun-body");
+    for (; ; ) {
+      let job;
+      try {
+        job = await api.getJob(jobId);
+      } catch (_) {
+        job = null;
+      }
+      if (!job) {
+        await new Promise((r) => setTimeout(r, 3e3));
+        continue;
+      }
+      const tail = (job.output || []).slice(-6).map(esc).join("\n");
+      if (jobsBox()) {
+        body(`<p style="font-size:13px;color:var(--text)">${job.status === "queued" ? "Queued behind another scan…" : "Re-running…"}</p>
+        <pre style="font-size:11px;max-height:160px;overflow:auto;white-space:pre-wrap">${tail}</pre>
+        ${actions()}`);
+      }
+      if (["completed", "failed", "error", "cancelled"].includes(job.status)) {
+        keys.forEach((k) => _running.delete(k));
+        document.querySelectorAll(".stig-running").forEach((n) => n.remove());
+        if (job.status === "completed" && job.scan_name) {
+          closeModal();
+          navigate(`#/stig-viewer/${encodeURIComponent(job.scan_name)}`);
+        } else if (jobsBox()) {
+          body(`<p style="color:var(--critical);font-size:13px">${esc(job.error || `Re-run ${job.status}`)}</p>
+          <pre style="font-size:11px;max-height:160px;overflow:auto;white-space:pre-wrap">${tail}</pre>${actions()}`);
+        }
+        return;
+      }
+      await new Promise((r) => setTimeout(r, 3e3));
+    }
+  }
+
   // src/index.js
-  Object.assign(window, format_exports, scans_exports, badges_exports, layout_exports, charts_exports, feedback_exports, cache_exports, api_exports, poam_exports, router_exports, settings_exports, performance_exports, stig_history_exports, new_scan_exports, self_diagnostic_exports, registries_exports, jira_review_exports, stig_exports, metrics_exports, overview_exports, applications_exports, model_security_exports, network_enrichment_exports, evidence_exports, scan_detail_exports, suppressed_exports, sbom_exports, api_endpoints_exports, findings_exports, summaries_exports, scorecard_exports, app_actions_exports, stig_exports2, finding_exports, signals_exports, shell_exports, ppsm_exports, self_assessment_exports, section_exports, static_dashboard_exports, workflow_exports, boot_exports, ui_helpers_exports, projects_exports);
+  Object.assign(window, format_exports, scans_exports, badges_exports, layout_exports, charts_exports, feedback_exports, cache_exports, api_exports, poam_exports, router_exports, settings_exports, performance_exports, stig_history_exports, new_scan_exports, self_diagnostic_exports, registries_exports, jira_review_exports, stig_exports, metrics_exports, overview_exports, applications_exports, model_security_exports, network_enrichment_exports, evidence_exports, scan_detail_exports, suppressed_exports, sbom_exports, api_endpoints_exports, findings_exports, summaries_exports, scorecard_exports, app_actions_exports, stig_exports2, finding_exports, signals_exports, shell_exports, ppsm_exports, self_assessment_exports, section_exports, static_dashboard_exports, workflow_exports, boot_exports, ui_helpers_exports, projects_exports, stig_rerun_exports);
 })();

@@ -2301,6 +2301,9 @@ def load_scan(scan_dir: Path, epyon_root: Path) -> dict:
         data["target_directory"] = meta.get("target_directory", "")
         data["source_url"]       = meta.get("source_url", "")
         data["file_statistics"]  = meta.get("file_statistics") or {}
+        if meta.get("parent_scan_id"):
+            data["parent_scan_id"] = meta["parent_scan_id"]
+            data["stig_rerun"]     = meta.get("stig_rerun") or {}
         if meta.get("scan_user"):
             data["user"] = meta["scan_user"]
 

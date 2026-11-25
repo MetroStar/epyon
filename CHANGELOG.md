@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.84.0] - 2026-11-24
+
+### Added
+- Run STIG for selected controls: a "Run STIG (n)" button in the STIG Findings toolbar and "Re-run this control" in the drawer reassess only those controls. The result is a new `stig` scan (`parent_scan_id` set, labelled "STIG re-run" in scan history); every other control is carried forward unchanged, marked `carried_forward_from`, so history and MTTR see no false changes and the viewed scan is never modified.
+- `POST /api/scans/{scan_id}/stig-run` (at most 50 ids, validated against the scan's STIG data). It offers the newer scan when the viewed one is not the latest STIG scan, requires an explicit override for locked or high-confidence closed controls, and runs one re-run per app at a time through the scan queue.
+- `run-stig-assessment.py --only V-1,V-2 --carry-from <scan dir>` (with `--parent-scan-id`, `--rerun-by`). A control whose re-run fails keeps its earlier result and is flagged.
+
 ## [3.83.1] - 2026-11-24
 
 ### Fixed

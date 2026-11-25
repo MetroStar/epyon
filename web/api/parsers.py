@@ -2306,6 +2306,15 @@ def load_scan(scan_dir: Path, epyon_root: Path) -> dict:
             data["stig_rerun"]     = meta.get("stig_rerun") or {}
         if meta.get("scan_user"):
             data["user"] = meta["scan_user"]
+        if meta.get("layers_requested") is not None:
+            # Which numbered layers the scan actually asked for (web UI layer
+            # picker selection, or the scan mode's default set) — lets the
+            # frontend hide cards for layers that were never requested rather
+            # than showing them as empty. Absent entirely for scans predating
+            # this field (CLI-triggered, or older web-UI scans); the frontend
+            # falls back to its previous "show if any data present" heuristic
+            # in that case.
+            data["layers_requested"] = meta["layers_requested"]
 
     # Resolve user from scan-manifest.json if still unknown
     if not data["user"]:

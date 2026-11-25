@@ -15,6 +15,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Scan Types (Full, Quick, STIG) render as selectable pill chips (icon + title, with a tooltip naming the actual tools/layers each runs) instead of long sentence-style checkbox labels. Full, Quick, and STIG are mutually exclusive — they're three different scan depths, not combinable choices — so selecting one deselects the other two. The now-pointless Select All/None controls were removed from Scan Types.
 - The Scan Layers picker is expanded by default (still collapsible) and now also applies to Quick (previously Full/Baseline only) — showing only the layers Quick actually honors (SBOM, TruffleHog, Trivy, Grype, pip-audit), since the backend hard-skips everything else in Quick mode regardless of checkbox state. "Select All" in Scan Layers now also enables the Garak and STIG opt-in add-ons (still require `OPENAI_API_KEY`); "Select None" clears them too.
 - `Nightly` and `Baseline` are no longer offered as scan types on the Run Scan page — both behave identically to `Full` for a manually-submitted scan (Nightly only differs by excluding STIG, which `Full` already treats as opt-in; Baseline has no distinct layer-gating or trend/drift semantics anywhere in the backend). Both remain accepted by the CLI/API and existing scan history groupings are unchanged.
+## [3.86.0] - 2026-11-25
+
+### Added
+- `scan-metadata.json` now records `layers_requested` (the layer numbers actually requested for the scan — the Run Scan page's layer picker selection, or the scan mode's default set from `docs/scanning/SCAN_MATRIX.md`) for web UI-triggered scans (standard, container-image, local-model, and STIG re-run).
+
+### Changed
+- The ML/AI Security card no longer renders at all for scans where none of layers 14/15/18/19/20 were requested (e.g. `quick`/`stig` mode scans), instead of always showing an empty "no ML layers detected" shell. Scans that ran an ML layer still show the card, including a clean "no findings" result. Older scans without `layers_requested` keep the previous always-show behaviour.
+## [3.85.0] - 2026-11-24
+
+### Changed
+- STIG Findings page redesign: the status stat cards now double as the status filter (click Open/Not a Finding/N/A/Evidence needed/Total — the old duplicate status chip row is gone); severity and STIG filters are a compact segmented control on one row with the search box; the three per-STIG downloads collapse into one themed "Export ▾" menu; and the Run STIG / Add to Jira / Lock actions appear only as a bulk-action bar once rows are checked, instead of always-visible disabled buttons.
 
 ## [3.84.0] - 2026-11-24
 

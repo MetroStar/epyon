@@ -13,7 +13,6 @@ import * as m8 from './pages/poam.js';
 import * as m9 from './core/router.js';
 import * as m10 from './pages/settings.js';
 import * as m11 from './pages/performance.js';
-import * as m12 from './pages/stig-history.js';
 import * as m13 from './pages/new-scan.js';
 import * as m14 from './pages/self-diagnostic.js';
 import * as m15 from './state/registries.js';
@@ -51,4 +50,4 @@ import * as m43 from './pages/projects.js';
 import * as m44 from './pages/stig-rerun.js';
 import { act } from './lib/format.js';
 
-Object.assign(window, m0, m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m12, m13, m14, m15, m16, m17, m18, m19, m20, m21, m22, m23, m24, m25, m26, m27, m28, m29, m30, m31, m32, m33, m34, m35, m36, m37, m38, m39, m40, m41, m42, m43, m44);
+Object.assign(window, m0, m1, m2, m3, m4, m5, m6, m7, m8, m9, m10, m11, m13, m14, m15, m16, m17, m18, m19, m20, m21, m22, m23, m24, m25, m26, m27, m28, m29, m30, m31, m32, m33, m34, m35, m36, m37, m38, m39, m40, m41, m42, m43, m44);

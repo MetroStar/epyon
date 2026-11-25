@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.88.0] - 2026-11-25
+
+### Changed
+- Moved STIG compliance history and MTTR tracking from the STIG page's "History & MTTR" tab into a new collapsible "STIG Compliance" section on the Metrics page, alongside the other cross-application trend sections. The app/STIG/date-range/status filters, sortable per-control matrix, and detail drawer are unchanged — only relocated.
+- The STIG page's tab bar is gone (only one view remained); a "History & MTTR" button now links straight to the Metrics section. Old `#/stig?view=history` links and bookmarks (optionally with `app`/`slug` params) redirect to the Metrics page with the section expanded and scrolled into view.
 ## [3.87.0] - 2026-11-25
 
 ### Changed

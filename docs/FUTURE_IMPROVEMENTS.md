@@ -1,18 +1,19 @@
 # Future Improvements — Planning Notes
 
-Status: **planning only, nothing here is implemented. Awaiting reviewer sign-off on viability before work starts.** Items 1–5 are product changes
-to scope; items 6–10 are analysis questions. File and line references were checked
-against `main` at 3.73.0 (PR #282 in review).
+Status: items 1, 2, 4, 5, 11, 12, 13 are **done**; item 3 is **partially done** (see its
+entry); item 14 is **mostly done**, with Jira-key mapping and automatic control-to-role
+mapping still open. Items 6–10 remain analysis-only questions, not yet started. File and
+line references were checked against `main` at 3.73.0 (PR #282 in review).
 
 ## Contents
 
 | # | Item | Type |
 |---|------|------|
-| 1 | Run STIG for selected control(s) | Feature |
-| 2 | STIG Findings page UI tightening | UI |
-| 3 | Hide tools that did not run (scan detail) | UI/data |
-| 4 | Run Scan page redesign (4a–4d) | UI |
-| 5 | Move STIG History & MTTR to the Metrics page | UI |
+| 1 | Run STIG for selected control(s) | Feature (done in 3.84.0) |
+| 2 | STIG Findings page UI tightening | UI (done in 3.85.0) |
+| 3 | Hide tools that did not run (scan detail) | UI/data (partially done in 3.86.0 — see entry) |
+| 4 | Run Scan page redesign (4a–4d) | UI (done in 3.87.0) |
+| 5 | Move STIG History & MTTR to the Metrics page | UI (done in 3.88.0) |
 | 6 | Web-UI cron for scheduled scans | Analysis |
 | 7 | Where to debloat Epyon | Analysis |
 | 8 | Smaller containers | Analysis |
@@ -91,6 +92,14 @@ carried-forward controls as unchanged and, per existing rules, ignore STIG-only 
 for non-STIG score comparisons.
 
 ## 2. STIG Findings page UI
+
+> **Shipped in 3.85.0.** Stat cards (Open / Not a Finding / N/A / Evidence needed / Total)
+> are now clickable buttons that double as the status filter (`aria-pressed`), replacing
+> the old duplicate status-chip row. Severity and STIG filters are a compact segmented
+> control on one row alongside the search box. The three per-STIG downloads (.md/.cklb/.json)
+> collapse into one "Export ▾" menu. Run STIG / Add to Jira / Lock now appear only as a
+> bulk-action bar when rows are checked. Sticky header, badge styling, row height, and
+> keyboard/screen-reader behavior are unchanged.
 
 **Observed (screenshot):** status and severity chips are tightly stacked with uneven
 label alignment; the search box is a lone row; "286 controls / Add to Jira / Lock" sit on a
@@ -173,6 +182,21 @@ status.json".
   already groups them). Update `SCAN_MATRIX.md` and the scan-type tooltips.
 
 ## 5. Move STIG History & MTTR to the Metrics page
+
+> **Shipped in 3.88.0.** The "History & MTTR" view is now a collapsible "STIG Compliance"
+> section on the Metrics page (`buildStigComplianceSection()` in
+> `web/src/components/stig-compliance-section.js`, extracted from the old
+> `web/src/pages/stig-history.js` so the render code moved rather than copied). It keeps
+> its own app/STIG/range/status filters and sortable matrix — the Metrics page has no
+> page-level app filter today, so the section follows the same self-contained-picker
+> pattern already used by the MTTR panel's `#mttr-app-filter`, rather than a shared filter.
+> The STIG page's tab bar was removed (nothing else used it) in favor of a direct
+> "History & MTTR" link to the Metrics section. `#/stig?view=history` (with optional
+> `app`/`slug` params) redirects to `#/metrics?section=stig-history&stigApp=...` so old
+> links/bookmarks keep working; the target section auto-expands and scrolls into view.
+> `/api/stig/history` was already ETag-cached like the other metrics endpoints, and its
+> per-app computation cost matches what the dedicated page always paid, so no backend
+> change was needed. The `stig_na`/`stig_nr` split is untouched.
 
 **What exists:** the "History & MTTR" tab on the STIG page (`stig.js:114`, view
 `#/stig?view=history`) rendered by `web/src/pages/stig-history.js` (summary cards incl.

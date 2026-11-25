@@ -4,6 +4,7 @@ import { emptyNote, emptyRow, errBanner, loading, pageHeader } from '../componen
 import { api } from '../lib/api.js';
 import { esc, ucFirst, act, actOn, ARG } from '../lib/format.js';
 import { buildCiHealthSection } from './performance.js';
+import { buildStigComplianceSection } from '../components/stig-compliance-section.js';
 
 // Globals that other modules put on window (see index.js):
 /* global closeFindingDetail, setActive */
@@ -649,13 +650,20 @@ export function buildAppTrendSection(m) {
       </div>`;
 }
 
-export async function renderMetrics() {
+export async function renderMetrics(params) {
   setActive('metrics');
   const page = document.getElementById('page');
   page.innerHTML = loading();
 
+  const stigApp     = params?.get('stigApp') || null;
+  const stigSlug    = params?.get('stigSlug') || null;
+  const expandParam = params?.get('section') || null;
+
   try {
-    const m = await api.getMetrics();
+    const [m, stigHistory] = await Promise.all([
+      api.getMetrics(),
+      api.getStigHistory(stigApp, stigSlug).catch(() => null),
+    ]);
 
     const totalFindings = (m.fix_rate.with_fix || 0) + (m.fix_rate.without_fix || 0);
     const fixPct     = totalFindings > 0
@@ -950,7 +958,8 @@ export async function renderMetrics() {
       ${buildRiskTrendSection(m)}
       ${buildSecretTrendSection(m)}
       ${buildSuppressionSection(m)}
-      ${buildRecurrenceSection(m)}`;
+      ${buildRecurrenceSection(m)}
+      ${buildStigComplianceSection(stigHistory)}`;
 
     requestAnimationFrame(() => {
       const donut = document.getElementById('donut-chart');
@@ -1151,6 +1160,16 @@ export async function renderMetrics() {
       buildCiHealthSection().then(html => {
         if (html && location.hash.startsWith('#/metrics')) page.insertAdjacentHTML('beforeend', html);
       });
+
+      // Deep link from the old #/stig?view=history URL (or a bookmark of it): expand and
+      // scroll to the STIG Compliance section instead of leaving it collapsed by default.
+      if (expandParam) {
+        const target = document.getElementById(`section-${expandParam}`);
+        if (target) {
+          target.classList.remove('collapsed');
+          target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }
     });
   } catch (e) {
     page.innerHTML = errBanner(e.message);

@@ -10,7 +10,6 @@ import { renderApplications, renderAppDetail } from '../pages/applications.js';
 import { renderScanDetail } from '../pages/scan-detail.js';
 import { renderNewScan } from '../pages/new-scan.js';
 import { renderProjects, renderProjectStig } from '../pages/projects.js';
-import { renderStigHistory } from '../pages/stig-history.js';
 
 // Hash routes, first match wins. `exact` routes match the whole path; `prefix` routes pass
 // the decoded remainder as `arg` (empty falls back to the section's list page). `title`
@@ -35,12 +34,20 @@ const ROUTES = [
   { prefix: '/projects/', title: 'Project STIG',
     render: id => (id ? renderProjectStig(id) : renderProjects()) },
   { exact: ['/new-scan'], title: 'Run Scan', render: (_, params) => renderNewScan(params.get('target') || '') },
-  { exact: ['/metrics'], title: 'Metrics', render: () => renderMetrics() },
+  { exact: ['/metrics'], title: 'Metrics', render: (_, params) => renderMetrics(params) },
   { exact: ['/performance'], title: 'Performance', render: () => renderPerformanceDashboard() },
   { exact: ['/stig'], title: 'STIG',
-    render: (_, params) => (params.get('view') === 'history'
-      ? renderStigHistory(params.get('app') || null, params.get('slug') || null)
-      : renderStig()) },
+    render: (_, params) => {
+      // The "History & MTTR" view moved to the Metrics page; redirect old links/bookmarks.
+      if (params.get('view') === 'history') {
+        const q = new URLSearchParams({ section: 'stig-history' });
+        if (params.get('app'))  q.set('stigApp', params.get('app'));
+        if (params.get('slug')) q.set('stigSlug', params.get('slug'));
+        navigate('#/metrics?' + q.toString());
+        return undefined;
+      }
+      return renderStig();
+    } },
   { exact: ['/settings'], title: 'Settings', render: () => renderSettings() },
 ];
 

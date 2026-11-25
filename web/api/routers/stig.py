@@ -6,6 +6,7 @@ from datetime import datetime
 from datetime import timezone
 from typing import List
 from typing import Optional
+import asyncio
 import json
 import re
 
@@ -15,9 +16,11 @@ from fastapi import Query
 from fastapi import Request
 from fastapi import Response
 from fastapi.responses import FileResponse
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 from .. import jira_client
+from .. import jobs as job_store
 from .. import parsers
 from .. import main as api_main
 
@@ -580,3 +583,98 @@ def stig_history(
             "currently_satisfied": currently_satisfied,
         },
     }
+
+
+MAX_STIG_RERUN_CONTROLS = 50
+_VULN_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{1,63}$")
+
+
+class StigRun(BaseModel):
+    vuln_ids: List[str]
+    confirm_override: bool = False  # explicit OK to overwrite locked / high-confidence closed controls
+    use_latest: bool = False  # branch from the newest STIG scan when the viewed one is older
+    editor: str = ""
+
+
+def _control_is_locked(a: dict) -> bool:
+    return bool(a.get("locked_by_human")) or (
+        a.get("status") in ("Not a Finding", "Not Applicable") and int(a.get("confidence") or 0) >= 85
+    )
+
+
+def _stig_assessments(scan_dir) -> dict:
+    merged: dict = {}
+    for f in api_main._real_stig_files(scan_dir):
+        try:
+            raw = json.loads(f.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        res = raw.get("assessments", raw) if isinstance(raw, dict) else {}
+        for vid, a in res.items():
+            if isinstance(a, dict):
+                merged.setdefault(vid, a)
+    return merged
+
+
+@router.post("/api/scans/{scan_id}/stig-run", status_code=202)
+async def stig_run(scan_id: str, body: StigRun, request: Request, response: Response):
+    """Reassess selected controls into a new scan; every other control is carried forward.
+
+    The viewed scan is never modified. The new scan branches from the app's latest scan that
+    has real STIG results, so a re-run never starts from stale data.
+    """
+    api_main._sec_headers(response)
+    if not api_main._SAFE_ID_RE.match(scan_id):
+        raise HTTPException(400, "Invalid scan_id")
+    ids = list(dict.fromkeys(v.strip() for v in body.vuln_ids if v.strip()))
+    if not ids:
+        raise HTTPException(400, "Select at least one control")
+    if len(ids) > MAX_STIG_RERUN_CONTROLS:
+        raise HTTPException(400, f"At most {MAX_STIG_RERUN_CONTROLS} controls can be re-run at once")
+    if not all(_VULN_ID_RE.match(v) for v in ids):
+        raise HTTPException(400, "Invalid control id")
+
+    scan_dirs = api_main._cached_find_scan_dirs()
+    viewed = next((d for d in scan_dirs if d.name == scan_id), None)
+    if not viewed:
+        raise HTTPException(404, "Scan not found")
+    m = api_main._APP_SCAN_RE.match(scan_id)
+    if not m:
+        raise HTTPException(400, "Invalid scan_id")
+    app_name = m.group(1)
+
+    candidates = [
+        d for d in scan_dirs
+        if (mm := api_main._APP_SCAN_RE.match(d.name)) and mm.group(1) == app_name and api_main._real_stig_files(d)
+    ]
+    latest = max(candidates, key=lambda d: d.name.rsplit(app_name + "_", 1)[-1], default=None)
+    if latest is None:
+        raise HTTPException(409, "This application has no STIG results to re-run from")
+    parent = viewed
+    if latest.name != viewed.name:
+        if not body.use_latest:
+            return JSONResponse(status_code=409, content={
+                "code": "newer_scan", "latest_scan_id": latest.name,
+                "detail": f"A newer STIG scan exists ({latest.name}). Re-run from it instead?",
+            })
+        parent = latest
+
+    assessments = _stig_assessments(parent)
+    unknown = [v for v in ids if v not in assessments]
+    if unknown:
+        raise HTTPException(400, f"Unknown control(s) for this scan: {', '.join(unknown[:5])}")
+    locked = [v for v in ids if _control_is_locked(assessments[v])]
+    if locked and not body.confirm_override:
+        return JSONResponse(status_code=409, content={
+            "code": "locked_controls", "controls": locked,
+            "detail": "These controls are locked or already closed with high confidence. Override them?",
+        })
+
+    editor = re.sub(r"[^\w .@-]", "", body.editor)[:80] or "web user"
+    api_main._audit(request, "stig_rerun", f"scan={parent.name} controls={len(ids)}")
+    job_id = job_store.new_job_id()
+    job = job_store.create_job(job_id, app_name, "stig")
+    job["stig_rerun"] = {"parent_scan_id": parent.name, "vuln_ids": ids}
+    job_store._on_scan_complete_cb = api_main._on_scan_complete
+    asyncio.create_task(job_store.run_stig_rerun_job(job_id, app_name, parent, ids, editor, api_main.EPYON_ROOT))
+    return {"job_id": job_id, "status": "queued", "parent_scan_id": parent.name}

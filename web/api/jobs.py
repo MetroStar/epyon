@@ -7,6 +7,7 @@ import asyncio
 import json
 import os
 import re
+import shutil
 import tempfile
 import threading
 from datetime import datetime, timedelta, timezone
@@ -965,6 +966,175 @@ def cancel_job(job_id: str) -> None:
         procs.pop(job_id, None)
     job["status"]       = "cancelled"
     job["completed_at"] = _now()
+
+
+_APP_TS_RE = re.compile(r"^(.+)_\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}$")
+
+
+def _ai_env(env: dict[str, str], target_name: str) -> None:
+    """Point a subprocess env at the AI endpoint chosen in settings (same rules as a scan)."""
+    use_openai = openai_summary.get_provider() == "openai"
+    base_url = "" if use_openai else (openai_summary.get_base_url() or os.environ.get("OPENAI_BASE_URL", ""))
+    key = openai_summary.get_api_key() or os.environ.get("OPENAI_API_KEY", "")
+    if key:
+        env["OPENAI_API_KEY"] = key
+    if base_url:
+        env["OPENAI_BASE_URL"] = base_url
+    elif use_openai:
+        env.pop("OPENAI_BASE_URL", None)
+        env["EPYON_AI_PROVIDER"] = "openai"
+    env["OPENAI_MODEL"] = openai_summary.get_model()
+    if not env.get("EPYON_STIG_FORMAT", "").strip():
+        env["EPYON_STIG_FORMAT"] = "etk"
+    env["EPYON_STIG_SAMPLES"] = str(openai_summary.get_stig_samples())
+    env["EPYON_STIG_SAMPLE_TEMPERATURE"] = str(openai_summary.get_stig_sample_temperature())
+    env.update(stig_policy_store.scan_env(target_name))
+
+
+async def run_stig_rerun_job(
+    job_id: str, app_name: str, parent_dir: Path, vuln_ids: list[str],
+    requested_by: str, epyon_root: Path,
+) -> None:
+    """Reassess selected controls into a NEW scan that carries every other control forward.
+
+    Serialised per app so two re-runs never branch from the same parent at once.
+    """
+    global _gate
+    if _gate is None:
+        _gate = _Gate()
+    job = jobs[job_id]
+    key = (app_name, "stig")
+    lock = _key_locks.setdefault(key, asyncio.Lock())
+    try:
+        async with lock:
+            async with _gate:
+                if job["status"] != "queued":
+                    return
+                await _run_stig_rerun_inner(job_id, app_name, parent_dir, vuln_ids, requested_by, epyon_root)
+    finally:
+        if not lock.locked() and not lock._waiters:  # type: ignore[attr-defined]
+            _key_locks.pop(key, None)
+
+
+def _fail(job: dict, message: str) -> None:
+    _append_line(job, f"[stig-rerun] ERROR: {message}")
+    job["status"] = "failed"
+    job["error"] = message
+    job["completed_at"] = _now()
+
+
+async def _run_stig_rerun_inner(
+    job_id: str, app_name: str, parent_dir: Path, vuln_ids: list[str],
+    requested_by: str, epyon_root: Path,
+) -> None:
+    job = jobs[job_id]
+    job["status"] = "running"
+    try:
+        meta = json.loads((parent_dir / "scan-metadata.json").read_text())
+    except (OSError, ValueError):
+        meta = {}
+
+    clone_root = None
+    source_url = str(meta.get("source_url") or "")
+    recorded_dir = str(meta.get("target_directory") or "")
+    if source_url:
+        clone_root = epyon_root / "tmp" / f"clone-{job_id}"
+        parts = Path(recorded_dir).parts
+        idx = next((i for i, part in enumerate(parts) if part.startswith("clone-")), None)
+        subdir = "/".join(parts[idx + 1:]) if idx is not None else ""
+        target_dir = str(clone_root / subdir) if subdir else str(clone_root)
+        _append_line(job, f"[stig-rerun] Cloning {source_url} …")
+        clone_root.mkdir(parents=True, exist_ok=True)
+        token = _read_github_config().get("token", "")
+        proc = await asyncio.create_subprocess_exec(
+            "git", "clone", "--depth=1", _authenticated_clone_url(source_url, token), str(clone_root),
+            stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
+        )
+        out, err = await proc.communicate()
+        for line in (out + err).decode("utf-8", errors="replace").splitlines():
+            if line.strip():
+                _append_line(job, f"[git] {line.replace(token, '***') if token else line}")
+        if proc.returncode != 0:
+            _fail(job, "Could not clone the repository to re-run the STIG")
+            return
+    elif recorded_dir and Path(recorded_dir).is_dir():
+        target_dir = recorded_dir
+    else:
+        _fail(job, "The scanned source is no longer available; run a full STIG scan instead")
+        return
+
+    base = _APP_TS_RE.match(parent_dir.name)
+    scan_name, scan_dir = _reserve_scan_dir(epyon_root, base.group(1) if base else app_name)
+    version_file = epyon_root / "VERSION"
+    version = version_file.read_text().strip() if version_file.exists() else "unknown"
+    started = datetime.now(timezone.utc).isoformat()
+    (scan_dir / "scan-metadata.json").write_text(json.dumps({
+        **{k: v for k, v in meta.items() if k in ("target_name", "source_url", "target_directory", "file_statistics")},
+        "scan_type": "stig",
+        "scan_timestamp": started,
+        "epyon_version": version,
+        "triggered_by": "web-ui",
+        "parent_scan_id": parent_dir.name,
+        "stig_rerun": {"controls": vuln_ids, "by": requested_by, "at": started},
+    }, indent=2))
+    job["scan_name"] = scan_name
+    _append_line(job, f"[stig-rerun] New scan {scan_name} from {parent_dir.name}: {', '.join(vuln_ids)}")
+
+    env = {**os.environ, "CI": "true", "NONINTERACTIVE": "1", "TERM": "dumb"}
+    _ai_env(env, app_name)
+    github_token = _read_github_config().get("token", "")
+    if github_token:
+        env["GH_PAT"] = github_token
+    current_path = env.get("PATH", "")
+    env["PATH"] = f"/opt/homebrew/bin:/usr/local/bin:{current_path}" if current_path else "/usr/local/bin:/usr/bin:/bin"
+    cmd = [
+        "python3", str(epyon_root / "scripts" / "shell" / "run-stig-assessment.py"),
+        "--stigs-dir", env.get("STIGS_DIR") or str(epyon_root / "configuration" / "stigs"),
+        "--target", target_dir, "--scan-dir", str(scan_dir), "--app-name", app_name,
+        "--model", env["OPENAI_MODEL"], "--only", ",".join(vuln_ids),
+        "--carry-from", str(parent_dir), "--parent-scan-id", parent_dir.name,
+        "--rerun-by", requested_by,
+    ]
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            *cmd, cwd=str(epyon_root), env=env, stdin=asyncio.subprocess.DEVNULL,
+            stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
+        )
+        procs[job_id] = proc
+
+        async def _timeout_kill() -> None:
+            await asyncio.sleep(JOB_TIMEOUT_SECONDS)
+            if job["status"] == "running":
+                _append_line(job, f"[epyon] Job timed out after {JOB_TIMEOUT_SECONDS // 60} minutes")
+                try:
+                    proc.kill()
+                except ProcessLookupError:
+                    pass
+
+        timeout_task = asyncio.create_task(_timeout_kill())
+        await asyncio.gather(_read_stream(proc.stdout, job), _read_stream(proc.stderr, job))
+        code = await proc.wait()
+        timeout_task.cancel()
+        procs.pop(job_id, None)
+        if job["status"] == "running":
+            job["exit_code"] = code
+            job["completed_at"] = _now()
+            if code == 0:
+                job["status"] = "completed"
+                if _on_scan_complete_cb:
+                    _on_scan_complete_cb(app_name, scan_name)
+            else:
+                errors = [ln for ln in job["output"] if "[ERROR]" in ln]
+                job["status"] = "failed"
+                job["error"] = _ANSI_RE.sub("", errors[-1]).strip() if errors else "STIG re-run failed"
+    except Exception as exc:
+        procs.pop(job_id, None)
+        job["status"] = "error"
+        job["error"] = str(exc)
+        job["completed_at"] = _now()
+    finally:
+        if clone_root is not None:
+            shutil.rmtree(clone_root, ignore_errors=True)
 
 
 async def run_self_assessment_job(

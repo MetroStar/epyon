@@ -81,6 +81,84 @@ th[data-col]:hover { color: var(--text); }
   color: var(--text);
 }
 
+/* ── Run Scan page: Target + Options cards, plus the "What to run"
+   modal CTA bar ───────────────────────────────────────────── */
+.scan-config-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 16px;
+  align-items: stretch;
+}
+.scan-config-card { margin-bottom: 0; min-width: 0; height: 100%; }
+
+/* Prominent, always-visible call to action below the config cards — opens
+   the "What to run" modal (scan types + layers + Start button) rather than
+   burying Run Scan at the bottom of a card where it was easy to miss. */
+.scan-run-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-top: 16px;
+  padding: 16px 20px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+}
+.scan-run-bar-hint { color: var(--text-muted); font-size: 13px; }
+.scan-run-bar-hint strong { display: block; color: var(--text); font-size: 14px; margin-bottom: 2px; }
+.scan-run-btn {
+  font-size: 15px;
+  font-weight: 600;
+  padding: 10px 28px;
+  justify-content: center;
+}
+
+/* Tighter variant of .form-group for the grouped Run Scan cards, where
+   stacked cards make the default 22px gap feel heavy. */
+.form-group-tight { margin-bottom: 14px; }
+.form-group-tight:last-child { margin-bottom: 0; }
+
+/* Scan Types now share the same toggle-pill style as Scan Layers
+   (.scan-layer-pill-grid / .scan-layer-pill, see below) — one visual
+   language for every multi-select picker on this page. */
+
+/* Scan layer picker: toggle pills instead of bordered checkbox rows —
+   the native checkbox stays the source of truth (hidden via the input
+   rule below), `.active` just mirrors its checked state as a filled pill. */
+.scan-layer-pill-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.scan-layer-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg-input);
+  font-size: 12px;
+  line-height: 1.3;
+  cursor: pointer;
+  user-select: none;
+  transition: border-color 0.12s, background 0.12s, color 0.12s;
+}
+.scan-layer-pill input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+.scan-layer-pill:hover { border-color: var(--accent); }
+.scan-layer-pill.active {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
+}
+
 /* App monitoring classification badge */
 .app-type-badge {
   display: inline-flex;

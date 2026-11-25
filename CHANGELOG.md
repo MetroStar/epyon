@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.85.0] - 2026-11-24
+
+### Changed
+- STIG Findings page redesign: the status stat cards now double as the status filter (click Open/Not a Finding/N/A/Evidence needed/Total — the old duplicate status chip row is gone); severity and STIG filters are a compact segmented control on one row with the search box; the three per-STIG downloads collapse into one themed "Export ▾" menu; and the Run STIG / Add to Jira / Lock actions appear only as a bulk-action bar once rows are checked, instead of always-visible disabled buttons.
+
 ## [3.84.0] - 2026-11-24
 
 ### Added

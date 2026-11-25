@@ -821,7 +821,7 @@ from .routers.github import router as github_router  # noqa: E402
 from .routers.projects import router as projects_router  # noqa: E402
 for _router in (system_router, applications_router, scans_router, reports_router, stig_router, poam_router, findings_router, jira_router, metrics_router, github_router, projects_router):
     app.include_router(_router)
-from .metrics_builder import _compute_metrics  # noqa: E402
+from .metrics_builder import _compute_metrics, _metrics_lock  # noqa: E402
 from .stig_entries import _build_stig_entries  # noqa: E402,F401
 
 

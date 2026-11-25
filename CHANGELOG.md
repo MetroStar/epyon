@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.88.1] - 2026-11-25
+
+### Fixed
+- `GET /api/metrics` returned a 500 whenever the in-memory metrics cache was older than `_METRICS_TTL` (5 minutes): the background-refresh kick-off read `api_main._metrics_lock`, an attribute that was never imported into `main.py` (only `_compute_metrics` was), so every stale-cache request raised an uncaught `AttributeError` instead of serving the cached payload. This made the Metrics page fail intermittently and only recover after a container restart, since a restart resets the cache to empty and takes the unaffected synchronous compute path. Fixed by importing `_metrics_lock` from `metrics_builder` and guarding the refresh kick-off so a future failure there degrades to serving the stale cache instead of 500ing.
+
 ## [3.88.0] - 2026-11-25
 
 ### Changed

@@ -20,7 +20,11 @@ def get_metrics(response: Response):
     api_main._sec_headers(response)
     if cache_state.metrics:
         if (time.monotonic() - cache_state.metrics_ts) >= api_main._METRICS_TTL:
-            _refresh_metrics_async()  # serve the stale copy while a fresh one builds
+            try:
+                _refresh_metrics_async()  # serve the stale copy while a fresh one builds
+            except Exception:
+                # Never let a background-refresh kick-off failure turn a cache hit into a 500.
+                logging.getLogger("epyon.perf").exception("metrics background refresh kick-off failed")
         return cache_state.metrics
     try:
         return api_main._compute_metrics()

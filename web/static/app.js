@@ -9502,13 +9502,19 @@ epyon install-workflow</pre>
   // src/pages/new-scan.js
   var new_scan_exports = {};
   __export(new_scan_exports, {
+    _closeWhatToRunModal: () => _closeWhatToRunModal,
+    _confirmStartScan: () => _confirmStartScan,
     _getSelectedScanLayers: () => _getSelectedScanLayers,
     _getSelectedScanTypes: () => _getSelectedScanTypes,
+    _isContainerImageMode: () => _isContainerImageMode,
+    _isLocalModelMode: () => _isLocalModelMode,
+    _onScanLayerToggle: () => _onScanLayerToggle,
     _onScanTypeSelectionChange: () => _onScanTypeSelectionChange,
+    _onScanTypeToggle: () => _onScanTypeToggle,
+    _openWhatToRunModal: () => _openWhatToRunModal,
     _runningLabel: () => _runningLabel,
-    _setGarak: () => _setGarak,
     _setMonitoringType: () => _setMonitoringType,
-    _setStig: () => _setStig,
+    _setTargetKind: () => _setTargetKind,
     _setTargetMode: () => _setTargetMode,
     cancelJobById: () => cancelJobById,
     cancelScan: () => cancelScan,
@@ -9528,7 +9534,6 @@ epyon install-workflow</pre>
     restoreScanRun: () => restoreScanRun,
     runNextQueuedScan: () => runNextQueuedScan,
     setScanLayerCheckboxes: () => setScanLayerCheckboxes,
-    setScanTypeCheckboxes: () => setScanTypeCheckboxes,
     startJobList: () => startJobList,
     startNewScanRun: () => startNewScanRun,
     submitScan: () => submitScan
@@ -9839,10 +9844,24 @@ epyon install-workflow</pre>
           Epyon orchestrates all applicable security layers based on the selected scan type.` })}
 
     <div class="section">
-      <div class="section-title">Scan Configuration</div>
-      <div class="result-section-box">
-        <div class="form-group">
-          <label>Source</label>
+      <div class="scan-config-grid">
+
+        <div class="result-section-box scan-config-card">
+          <div class="result-section-box-title">Target</div>
+          <div class="form-group form-group-tight">
+            <label>Scanning</label>
+            <div class="scan-layer-pill-grid" id="target-kind-ctrl">
+              <button type="button" class="scan-layer-pill active" data-value="project" id="target-kind-project-btn"
+                ${act("_setTargetKind", "project")}>📁 Project / Repository</button>
+              <button type="button" class="scan-layer-pill" data-value="image" id="target-kind-image-btn"
+                ${act("_setTargetKind", "image")}>📦 Container Image</button>
+              <button type="button" class="scan-layer-pill" data-value="local_model" id="target-kind-local-model-btn"
+                ${act("_setTargetKind", "local_model")}>🧠 Local Model</button>
+            </div>
+            <small>Container Image and Local Model each scan a different kind of target on their own (no scan type/layer choice needed) — pick Project/Repository for everything else.</small>
+          </div>
+          <div class="form-group form-group-tight">
+            <label>Source</label>
             <div class="seg-ctrl" id="target-mode-ctrl">
               <button type="button" class="seg-btn active" data-value="path" id="target-mode-path-btn"
                 ${act("_setTargetMode", "path")}>Path / Git URL</button>
@@ -9854,7 +9873,7 @@ epyon install-workflow</pre>
               "Upload archive" to scan a local, not-yet-pushed project instead.</small>
           </div>
 
-          <div class="form-group" id="std-target-field">
+          <div class="form-group form-group-tight" id="std-target-field">
             <label for="scan-target">Target</label>
             <input type="text" id="scan-target" autocomplete="off" spellcheck="false"
               placeholder="/absolute/path/to/project  or  https://github.com/org/repo.git"
@@ -9862,59 +9881,14 @@ epyon install-workflow</pre>
             <small id="scan-target-hint">Absolute local directory path, relative path, or Git repository URL (HTTPS/SSH)</small>
           </div>
 
-          <div class="form-group" id="upload-target-field" style="display:none">
+          <div class="form-group form-group-tight" id="upload-target-field" style="display:none">
             <label for="scan-upload" id="scan-upload-label">Project archive (.zip / .tar.gz)</label>
             <input type="file" id="scan-upload" accept=".zip,.tar,.tar.gz,.tgz,.tar.bz2,.tar.xz" />
             <small id="scan-upload-hint">Zip or tar the project directory (e.g. <code>zip -r project.zip project/</code> or <code>tar -czf project.tar.gz project/</code>) and
               upload it here. Extracted on the server and scanned like a local path.</small>
           </div>
 
-          <div class="form-group">
-            <label>Scan Types</label>
-            <div style="margin-bottom:8px">
-              <button type="button" class="btn btn-sm" ${act("setScanTypeCheckboxes", true)}>Select All</button>
-              <button type="button" class="btn btn-sm" ${act("setScanTypeCheckboxes", false)}>Select None</button>
-            </div>
-            <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(160px, 1fr));gap:8px">
-              ${SCAN_TYPE_OPTIONS.map((t) => `
-                <label style="display:flex;align-items:center;gap:6px;font-size:12px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;background:var(--bg-input)">
-                  <input type="checkbox" class="scan-type-checkbox" value="${t.id}"
-                    ${t.id === "full" ? "checked" : ""} ${actOn("change", "_onScanTypeSelectionChange")}>
-                  <span>${esc(t.label)}</span>
-                </label>`).join("")}
-            </div>
-            <small>Select one or more scan types to run sequentially against the same target.</small>
-          </div>
-
-          <div class="form-group" id="scan-layer-picker-wrapper">
-            <label>Scan Layers</label>
-            ${renderScanLayerPicker()}
-            <small>Only applies to Full, Nightly and Baseline scan types — Quick, STIG, and Local Model always run their fixed layer set.</small>
-          </div>
-
-          <div class="form-group" id="garak-checkbox-row">
-            <label>Garak LLM Scan (Layer 12)</label>
-            <div class="seg-ctrl" id="garak-ctrl">
-              <button type="button" class="seg-btn active" data-value="off"
-                ${act("_setGarak", "off")}>Off</button>
-              <button type="button" class="seg-btn" data-value="on"
-                ${act("_setGarak", "on")}>On</button>
-            </div>
-            <small>Requires <code>OPENAI_API_KEY</code> to be set.</small>
-          </div>
-
-          <div class="form-group" id="stig-checkbox-row">
-            <label>STIG Compliance (Layer 13)</label>
-            <div class="seg-ctrl" id="stig-ctrl">
-              <button type="button" class="seg-btn active" data-value="off"
-                ${act("_setStig", "off")}>Off</button>
-              <button type="button" class="seg-btn" data-value="on"
-                ${act("_setStig", "on")}>On</button>
-            </div>
-            <small>Requires <code>OPENAI_API_KEY</code> to be set.</small>
-          </div>
-
-          <div class="form-group">
+          <div class="form-group form-group-tight">
             <label>Monitoring Type</label>
             <div class="seg-ctrl" id="monitoring-type-ctrl">
               <button type="button" class="seg-btn active" data-value="evaluation"
@@ -9928,11 +9902,18 @@ epyon install-workflow</pre>
             </div>
             <small>Continuous apps are tracked in Metrics. Evaluation apps are excluded.</small>
           </div>
-
-          <button id="run-btn" class="btn btn-primary" style="width:100%;justify-content:center" ${act("submitScan")}>
-            ▶ Run Scan
-          </button>
         </div>
+
+      </div>
+
+      <div class="scan-run-bar">
+        <div class="scan-run-bar-hint">
+          <strong id="scan-run-bar-summary">What to run: Full (all layers)</strong>
+          <div>Choose scan types and layers, then start the run.</div>
+        </div>
+        <button id="run-btn" class="btn btn-primary scan-run-btn" ${act("_openWhatToRunModal")}>
+          ▶ Run Scan
+        </button>
       </div>
     </div>
 
@@ -10104,19 +10085,177 @@ epyon install-workflow</pre>
     renderNewScan();
   }
   var SCAN_TYPE_OPTIONS = [
-    { id: "full", label: "Full — All security layers (recommended)" },
-    { id: "quick", label: "Quick — Fast check: Trivy, TruffleHog, SBOM" },
-    { id: "nightly", label: "Nightly — Scheduled comprehensive scan (layers 1–12)" },
-    { id: "baseline", label: "Baseline — Establish initial security benchmark (all layers)" },
-    { id: "stig", label: "STIG — STIG compliance assessment only (on demand)" },
-    { id: "local_model", label: "Local Model — Scan model weights in a local directory (layers 14–15)" },
-    { id: "container_image", label: "Container Image — Scan a local/registry/URL image (TruffleHog, Trivy, Grype, Xeol)" }
+    {
+      id: "full",
+      label: "Full — All security layers (recommended)",
+      icon: "🛡️",
+      title: "Full",
+      desc: "Every layer below (SBOM, secrets, malware, IaC, container, vuln, dependency, SAST, EOL, model/ML, network, etc.) — pick exactly which ones in Scan Layers below. Garak and STIG are available there too as opt-in add-ons."
+    },
+    {
+      id: "quick",
+      label: "Quick — Fast check: SBOM, TruffleHog, Trivy, Grype, pip-audit, npm audit, Semgrep, Safety",
+      icon: "⚡",
+      title: "Quick",
+      desc: "A fast subset: SBOM (Syft), Secret Detection (TruffleHog), Container Security (Trivy), Vulnerability Scanning (Grype), Direct Dependency Scanning (pip-audit), Node Dependency Audit, SAST (Semgrep), and Python Safety Check — the first five can be toggled off individually in Scan Layers below."
+    },
+    {
+      id: "stig",
+      label: "STIG — STIG compliance assessment only (on demand)",
+      icon: "📋",
+      title: "STIG",
+      desc: "Only the AI-powered STIG compliance assessment (Layer 13) against the configured STIG checklists — no other security layers run. Requires OPENAI_API_KEY."
+    }
   ];
-  function setScanTypeCheckboxes(checked) {
-    document.querySelectorAll(".scan-type-checkbox").forEach((cb) => {
-      cb.checked = checked;
+  var CONTAINER_IMAGE_TYPE = {
+    id: "container_image",
+    label: "Container Image — Scan a local/registry/URL image (TruffleHog, Trivy, Grype, Xeol)",
+    icon: "📦",
+    title: "Container Image",
+    desc: "Scan a local/registry/URL image"
+  };
+  var LOCAL_MODEL_TYPE = {
+    id: "local_model",
+    label: "Local Model — Scan model weights in a local directory (layers 14–15)",
+    icon: "🧠",
+    title: "Local Model",
+    desc: "Scan model weights in a local directory"
+  };
+  var BASELINE_TYPE = {
+    id: "baseline",
+    label: "Baseline — Establish initial security benchmark (all layers)",
+    icon: "📐",
+    title: "Baseline",
+    desc: "Establish initial security benchmark"
+  };
+  var ALL_SCAN_TYPES = [...SCAN_TYPE_OPTIONS, CONTAINER_IMAGE_TYPE, LOCAL_MODEL_TYPE, BASELINE_TYPE];
+  var EXCLUSIVE_SCAN_TYPES = ["full", "quick", "stig"];
+  var _modalScanTypeIds = ["full"];
+  var _modalScanLayerIds = null;
+  var _modalRunGarak = false;
+  var _modalRunStig = false;
+  function _currentLayerPickerMode() {
+    return _modalScanTypeIds.includes("quick") ? "quick" : "full";
+  }
+  var _lastLayerPickerMode = _currentLayerPickerMode();
+  function _whatToRunBody() {
+    return `
+    <div class="form-group form-group-tight">
+      <label>Scan Types</label>
+      <div class="scan-layer-pill-grid">
+        ${SCAN_TYPE_OPTIONS.map((t) => _layerPill({
+      cls: "scan-type-checkbox",
+      value: t.id,
+      checked: _modalScanTypeIds.includes(t.id),
+      label: `${t.icon} ${esc(t.title)}`,
+      title: t.desc,
+      onChange: "_onScanTypeToggle",
+      onChangeArgs: [{ $: "value" }, { $: "checked" }]
+    })).join("")}
+      </div>
+      <small>Full, Quick, and STIG are mutually exclusive (three different scan depths) — select one of them.</small>
+    </div>
+
+    <div class="form-group form-group-tight" id="scan-layer-picker-wrapper">
+      <label>Scan Layers</label>
+      <div id="scan-layer-picker-body">${renderScanLayerPicker(_currentLayerPickerMode())}</div>
+      <small>Only applies to Full, Quick, and Baseline scan types (Quick shows only the layers it actually runs) — STIG and Nightly (CLI/schedule only) always run their fixed layer set. Garak and STIG are opt-in add-ons for Full and require <code>OPENAI_API_KEY</code> to be set.</small>
+    </div>`;
+  }
+  function _openWhatToRunModal() {
+    if (_isContainerImageMode()) {
+      submitScan(["container_image"], null, false, false);
+      return;
+    }
+    if (_isLocalModelMode()) {
+      submitScan(["local_model"], null, false, false);
+      return;
+    }
+    document.querySelector(".modal-overlay")?.remove();
+    const overlay = document.createElement("div");
+    overlay.className = "modal-overlay";
+    overlay.innerHTML = `
+    <div class="modal-container modal-xl modal-flex" role="dialog" aria-modal="true" aria-labelledby="what-to-run-title">
+      <div class="modal-flex-header">
+        <h2 id="what-to-run-title" style="margin:0">What to run</h2>
+        <button class="btn btn-sm" ${act("_closeWhatToRunModal")}>✕</button>
+      </div>
+      <div class="modal-flex-body">
+        ${_whatToRunBody()}
+      </div>
+      <div class="modal-actions modal-flex-footer">
+        <button class="btn" ${act("_closeWhatToRunModal")}>Cancel</button>
+        <button class="btn btn-primary" ${act("_confirmStartScan")}>▶ Start Scan</button>
+      </div>
+    </div>`;
+    overlay.addEventListener("click", (e) => {
+      if (e.target === overlay) _closeWhatToRunModal();
     });
+    document.body.appendChild(overlay);
+    if (_modalScanLayerIds) {
+      document.querySelectorAll(".scan-layer-checkbox").forEach((cb) => {
+        cb.checked = _modalScanLayerIds.includes(cb.value);
+      });
+    }
+    const garakCb = document.getElementById("garak-layer-checkbox");
+    if (garakCb) garakCb.checked = _modalRunGarak;
+    const stigCb = document.getElementById("stig-layer-checkbox");
+    if (stigCb) stigCb.checked = _modalRunStig;
+    _onScanLayerToggle();
     _onScanTypeSelectionChange();
+  }
+  function _closeWhatToRunModal() {
+    if (document.querySelector(".scan-type-checkbox")) {
+      _modalScanTypeIds = _getSelectedScanTypes();
+      _modalScanLayerIds = _getSelectedScanLayers();
+      _modalRunGarak = !!document.getElementById("garak-layer-checkbox")?.checked;
+      _modalRunStig = !!document.getElementById("stig-layer-checkbox")?.checked;
+    }
+    document.querySelector(".modal-overlay")?.remove();
+    _updateRunBarSummary();
+  }
+  async function _confirmStartScan() {
+    const types = _getSelectedScanTypes();
+    const layers = _getSelectedScanLayers();
+    if (types.length === 0) {
+      toast("Select at least one scan type to run.", "warning");
+      return;
+    }
+    const runGarak = !!document.getElementById("garak-layer-checkbox")?.checked;
+    const runStig = !!document.getElementById("stig-layer-checkbox")?.checked;
+    _modalScanTypeIds = types;
+    _modalScanLayerIds = layers;
+    _modalRunGarak = runGarak;
+    _modalRunStig = runStig;
+    document.querySelector(".modal-overlay")?.remove();
+    _updateRunBarSummary();
+    await submitScan(types, layers, runGarak, runStig);
+  }
+  function _updateRunBarSummary(types, layers) {
+    const el = document.getElementById("scan-run-bar-summary");
+    if (!el) return;
+    if (_isContainerImageMode()) {
+      el.textContent = "What to run: Container Image scan";
+      const hint2 = el.parentElement?.querySelector("div");
+      if (hint2) hint2.textContent = "Click Run Scan to scan the image above.";
+      return;
+    }
+    if (_isLocalModelMode()) {
+      el.textContent = "What to run: Local Model scan";
+      const hint2 = el.parentElement?.querySelector("div");
+      if (hint2) hint2.textContent = "Click Run Scan to scan the model directory above.";
+      return;
+    }
+    const typeIds = types || _modalScanTypeIds;
+    const layerIds = layers !== void 0 ? layers : _modalScanLayerIds;
+    const typeLabels = SCAN_TYPE_OPTIONS.filter((t) => typeIds.includes(t.id)).map((t) => t.title);
+    const typeSummary = typeLabels.length ? typeLabels.join(", ") : "none selected";
+    const layerSummary = layerIds ? `${layerIds.length} layer(s)` : "all layers";
+    const addons = [_modalRunGarak && "Garak", _modalRunStig && "STIG"].filter(Boolean);
+    const addonSummary = addons.length ? `, + ${addons.join(" + ")}` : "";
+    el.textContent = `What to run: ${typeSummary} (${layerSummary}${addonSummary})`;
+    const hint = el.parentElement?.querySelector("div");
+    if (hint) hint.textContent = "Choose scan types and layers, then start the run.";
   }
   var SCAN_LAYER_OPTIONS = [
     { n: "1", name: "SBOM Generation" },
@@ -10137,27 +10276,65 @@ epyon install-workflow</pre>
     { n: "19", name: "Inference Environment Security" },
     { n: "21", name: "Compromised Source Detection" }
   ];
-  function renderScanLayerPicker() {
-    const boxes = SCAN_LAYER_OPTIONS.map((l) => `
-    <label style="display:flex;align-items:center;gap:6px;font-size:12px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;background:var(--bg-input)">
-      <input type="checkbox" class="scan-layer-checkbox" value="${l.n}" checked>
-      <span>L${l.n} — ${esc(l.name)}</span>
-    </label>`).join("");
+  var QUICK_LAYER_NUMS = ["1", "2", "7", "8", "8.5"];
+  function _layerPill({ cls, id, value, checked, label, title, onChange, onChangeArgs }) {
     return `
-    <details>
+    <label class="scan-layer-pill${checked ? " active" : ""}"${title ? ` title="${esc(title)}"` : ""}>
+      <input type="checkbox" class="${cls}"${id ? ` id="${id}"` : ""}${value ? ` value="${esc(value)}"` : ""}
+        ${checked ? "checked" : ""} ${actOn("change", onChange || "_onScanLayerToggle", ...onChangeArgs || [])}>
+      <span>${label}</span>
+    </label>`;
+  }
+  function renderScanLayerPicker(mode) {
+    const isQuick = mode === "quick";
+    const layerOptions = isQuick ? SCAN_LAYER_OPTIONS.filter((l) => QUICK_LAYER_NUMS.includes(l.n)) : SCAN_LAYER_OPTIONS;
+    const boxes = layerOptions.map((l) => _layerPill({
+      cls: "scan-layer-checkbox",
+      value: l.n,
+      checked: true,
+      label: `L${l.n} — ${esc(l.name)}`
+    })).join("");
+    const addons = isQuick ? "" : [
+      _layerPill({
+        cls: "scan-addon-checkbox",
+        id: "garak-layer-checkbox",
+        checked: _modalRunGarak,
+        label: "L12 — Garak LLM Scan 🔑",
+        title: "Requires OPENAI_API_KEY to be set"
+      }),
+      _layerPill({
+        cls: "scan-addon-checkbox",
+        id: "stig-layer-checkbox",
+        checked: _modalRunStig,
+        label: "L13 — STIG Compliance 🔑",
+        title: "Requires OPENAI_API_KEY to be set"
+      })
+    ].join("");
+    return `
+    <details open>
       <summary style="cursor:pointer;font-size:13px;color:var(--text-muted)">Select layers to run (defaults to all)</summary>
       <div style="margin-top:10px">
         <div style="margin-bottom:8px">
           <button type="button" class="btn btn-sm" ${act("setScanLayerCheckboxes", true)}>Select All</button>
           <button type="button" class="btn btn-sm" ${act("setScanLayerCheckboxes", false)}>Select None</button>
         </div>
-        <div style="display:flex;flex-wrap:wrap;gap:8px">${boxes}</div>
+        <div class="scan-layer-pill-grid">${boxes}${addons}</div>
       </div>
     </details>`;
   }
   function setScanLayerCheckboxes(checked) {
     document.querySelectorAll(".scan-layer-checkbox").forEach((cb) => {
       cb.checked = checked;
+    });
+    document.querySelectorAll(".scan-addon-checkbox").forEach((cb) => {
+      cb.checked = checked;
+    });
+    _onScanLayerToggle();
+  }
+  function _onScanLayerToggle() {
+    document.querySelectorAll(".scan-layer-pill").forEach((pill) => {
+      const cb = pill.querySelector("input");
+      pill.classList.toggle("active", !!cb?.checked);
     });
   }
   function _getSelectedScanLayers() {
@@ -10169,51 +10346,72 @@ epyon install-workflow</pre>
   function _getSelectedScanTypes() {
     return Array.from(document.querySelectorAll(".scan-type-checkbox")).filter((cb) => cb.checked).map((cb) => cb.value);
   }
-  function _onScanTypeSelectionChange() {
-    const modes = _getSelectedScanTypes();
+  var _targetKind = "project";
+  function _isContainerImageMode() {
+    return _targetKind === "image";
+  }
+  function _isLocalModelMode() {
+    return _targetKind === "local_model";
+  }
+  function _setTargetKind(value) {
+    _targetKind = value;
+    document.querySelectorAll("#target-kind-ctrl .scan-layer-pill").forEach((btn) => {
+      btn.classList.toggle("active", btn.dataset.value === value);
+    });
+    _applyTargetKindUI(value);
+    _updateRunBarSummary();
+  }
+  function _applyTargetKindUI(kind) {
+    const isImageOnly = kind === "image";
+    const isLocalModel = kind === "local_model";
     const inp = document.getElementById("scan-target");
     const targetLabel = document.querySelector('label[for="scan-target"]');
     const targetHint = document.getElementById("scan-target-hint");
-    const isImageOnly = modes.length === 1 && modes[0] === "container_image";
     if (inp && !inp.value) {
-      inp.placeholder = isImageOnly ? "nginx:1.27-alpine  or  ghcr.io/org/app:tag  or  ./my-image.tar  or  https://example.com/app.tar.gz" : modes.length === 1 && modes[0] === "local_model" ? "/absolute/path/to/models  (e.g. /opt/models/llama3)" : "/absolute/path/to/project  or  https://github.com/org/repo.git";
+      inp.placeholder = isImageOnly ? "nginx:1.27-alpine  or  ghcr.io/org/app:tag  or  ./my-image.tar  or  https://example.com/app.tar.gz" : isLocalModel ? "/absolute/path/to/models  (e.g. /opt/models/llama3)" : "/absolute/path/to/project  or  https://github.com/org/repo.git";
     }
-    if (targetLabel) targetLabel.textContent = isImageOnly ? "Container Image Source" : "Target";
+    if (targetLabel) targetLabel.textContent = isImageOnly ? "Container Image Source" : isLocalModel ? "Model Directory" : "Target";
     if (targetHint) {
-      targetHint.textContent = isImageOnly ? 'A registry reference to pull (e.g. ghcr.io/org/app:tag) or an https:// URL to an image tarball. A local image name/tag or tarball path only works if it already exists on THIS SERVER’s filesystem/Docker daemon — for an image on your own machine, use "Upload image tarball" below instead.' : "Absolute local directory path, relative path, or Git repository URL (HTTPS/SSH)";
+      targetHint.textContent = isImageOnly ? 'A registry reference to pull (e.g. ghcr.io/org/app:tag) or an https:// URL to an image tarball. A local image name/tag or tarball path only works if it already exists on THIS SERVER’s filesystem/Docker daemon — for an image on your own machine, use "Upload image tarball" below instead.' : isLocalModel ? "Absolute local directory path containing model weight files (.pkl, .pt, .safetensors, etc.) and card metadata — scans layers 14–15 only." : "Absolute local directory path, relative path, or Git repository URL (HTTPS/SSH)";
     }
     const uploadBtn = document.getElementById("target-mode-upload-btn");
     const modeHint = document.getElementById("target-mode-hint");
     const uploadLabel = document.getElementById("scan-upload-label");
     const uploadInput = document.getElementById("scan-upload");
     const uploadHint = document.getElementById("scan-upload-hint");
-    if (uploadBtn) uploadBtn.textContent = isImageOnly ? "Upload image tarball" : "Upload archive";
+    if (uploadBtn) uploadBtn.textContent = isImageOnly ? "Upload image tarball" : isLocalModel ? "Upload model archive" : "Upload archive";
     if (modeHint) {
-      modeHint.innerHTML = isImageOnly ? 'Deployed on a remote server? A typed local tarball path is resolved on the <strong>server’s</strong> own filesystem, not your machine — use "Upload image tarball" to scan a local <code>docker save</code> archive instead (registry references and https:// URLs work fine from the Target field either way).' : 'Deployed on a remote server? A typed absolute path is resolved on the <strong>server’s</strong> own filesystem, not your machine — use "Upload archive" to scan a local, not-yet-pushed project instead.';
+      modeHint.innerHTML = isImageOnly ? 'Deployed on a remote server? A typed local tarball path is resolved on the <strong>server’s</strong> own filesystem, not your machine — use "Upload image tarball" to scan a local <code>docker save</code> archive instead (registry references and https:// URLs work fine from the Target field either way).' : isLocalModel ? 'Deployed on a remote server? A typed absolute path is resolved on the <strong>server’s</strong> own filesystem, not your machine — use "Upload model archive" to scan a local model directory instead.' : 'Deployed on a remote server? A typed absolute path is resolved on the <strong>server’s</strong> own filesystem, not your machine — use "Upload archive" to scan a local, not-yet-pushed project instead.';
     }
-    if (uploadLabel) uploadLabel.textContent = isImageOnly ? "Image archive (.tar / .tar.gz / .tgz)" : "Project archive (.zip / .tar.gz)";
+    if (uploadLabel) uploadLabel.textContent = isImageOnly ? "Image archive (.tar / .tar.gz / .tgz)" : isLocalModel ? "Model directory archive (.zip / .tar.gz)" : "Project archive (.zip / .tar.gz)";
     if (uploadInput) uploadInput.accept = isImageOnly ? ".tar,.tar.gz,.tgz" : ".zip,.tar,.tar.gz,.tgz,.tar.bz2,.tar.xz";
     if (uploadHint) {
-      uploadHint.innerHTML = isImageOnly ? "Produce one with <code>docker save -o image.tar name:tag</code> (or gzip it) and upload it here. Loaded into the server’s Docker daemon and scanned like a registry/local image." : "Zip or tar the project directory (e.g. <code>zip -r project.zip project/</code> or <code>tar -czf project.tar.gz project/</code>) and upload it here. Extracted on the server and scanned like a local path.";
+      uploadHint.innerHTML = isImageOnly ? "Produce one with <code>docker save -o image.tar name:tag</code> (or gzip it) and upload it here. Loaded into the server’s Docker daemon and scanned like a registry/local image." : isLocalModel ? "Zip or tar the model directory (e.g. <code>zip -r models.zip models/</code> or <code>tar -czf models.tar.gz models/</code>) and upload it here. Extracted on the server and scanned like a local model directory." : "Zip or tar the project directory (e.g. <code>zip -r project.zip project/</code> or <code>tar -czf project.tar.gz project/</code>) and upload it here. Extracted on the server and scanned like a local path.";
     }
-    const optInModes = ["full", "nightly", "baseline"];
+  }
+  function _onScanTypeToggle(value, checked) {
+    if (checked && EXCLUSIVE_SCAN_TYPES.includes(value)) {
+      EXCLUSIVE_SCAN_TYPES.filter((id) => id !== value).forEach((id) => {
+        const otherCb = document.querySelector(`.scan-type-checkbox[value="${id}"]`);
+        if (otherCb) otherCb.checked = false;
+      });
+    }
+    _onScanTypeSelectionChange();
+  }
+  function _onScanTypeSelectionChange() {
+    const modes = _getSelectedScanTypes();
+    _updateRunBarSummary(modes, _getSelectedScanLayers());
+    _onScanLayerToggle();
+    const optInModes = ["full", "nightly", "baseline", "quick"];
     const anyOptIn = modes.some((m) => optInModes.includes(m));
-    const garakRow = document.getElementById("garak-checkbox-row");
-    if (garakRow) garakRow.style.display = anyOptIn ? "" : "none";
-    const stigRow = document.getElementById("stig-checkbox-row");
-    if (stigRow) stigRow.style.display = anyOptIn ? "" : "none";
     const layerPickerRow = document.getElementById("scan-layer-picker-wrapper");
     if (layerPickerRow) layerPickerRow.style.display = anyOptIn ? "" : "none";
-  }
-  function _setGarak(value) {
-    document.querySelectorAll("#garak-ctrl .seg-btn").forEach((btn) => {
-      btn.classList.toggle("active", btn.dataset.value === value);
-    });
-  }
-  function _setStig(value) {
-    document.querySelectorAll("#stig-ctrl .seg-btn").forEach((btn) => {
-      btn.classList.toggle("active", btn.dataset.value === value);
-    });
+    const pickerMode = modes.includes("quick") ? "quick" : "full";
+    if (anyOptIn && pickerMode !== _lastLayerPickerMode) {
+      const body2 = document.getElementById("scan-layer-picker-body");
+      if (body2) body2.innerHTML = renderScanLayerPicker(pickerMode);
+      _lastLayerPickerMode = pickerMode;
+    }
   }
   function _setMonitoringType(value) {
     document.querySelectorAll("#monitoring-type-ctrl .seg-btn").forEach((btn) => {
@@ -10229,13 +10427,11 @@ epyon install-workflow</pre>
     if (pathField) pathField.style.display = value === "upload" ? "none" : "";
     if (uploadField) uploadField.style.display = value === "upload" ? "" : "none";
   }
-  async function submitScan() {
-    const selectedTypes = _getSelectedScanTypes();
-    const activeGarak = document.querySelector("#garak-ctrl .seg-btn.active");
-    const runGarak = activeGarak?.dataset.value === "on";
-    const activeStig = document.querySelector("#stig-ctrl .seg-btn.active");
-    const runStig = activeStig ? activeStig.dataset.value === "on" : false;
-    const selectedLayers = _getSelectedScanLayers();
+  async function submitScan(overrideTypes, overrideLayers, overrideGarak, overrideStig) {
+    const selectedTypes = overrideTypes || _getSelectedScanTypes();
+    const runGarak = overrideGarak !== void 0 ? overrideGarak : !!document.getElementById("garak-layer-checkbox")?.checked;
+    const runStig = overrideStig !== void 0 ? overrideStig : !!document.getElementById("stig-layer-checkbox")?.checked;
+    const selectedLayers = overrideLayers !== void 0 ? overrideLayers : _getSelectedScanLayers();
     const btn = document.getElementById("run-btn");
     if ("Notification" in window && Notification.permission === "default") {
       try {
@@ -10294,7 +10490,7 @@ epyon install-workflow</pre>
     const queue = ctx.queue;
     while (queue.length && !_scanQueueCancelled) {
       const scanType = queue.shift();
-      const label = SCAN_TYPE_OPTIONS.find((t) => t.id === scanType)?.label || scanType;
+      const label = ALL_SCAN_TYPES.find((t) => t.id === scanType)?.label || scanType;
       try {
         const layersForThisType = ["full", "nightly", "baseline"].includes(scanType) ? ctx.selectedLayers : null;
         const job = ctx.activeMode === "upload" ? scanType === "container_image" ? await api.triggerScanUploadImage(ctx.uploadFile, (pct, done) => {
@@ -10326,7 +10522,7 @@ epyon install-workflow</pre>
     }
     while (queue.length) {
       const skippedType = queue.shift();
-      const skippedLabel = SCAN_TYPE_OPTIONS.find((t) => t.id === skippedType)?.label || skippedType;
+      const skippedLabel = ALL_SCAN_TYPES.find((t) => t.id === skippedType)?.label || skippedType;
       _scanQueueResults.push({ type: skippedType, label: skippedLabel, status: "fail", reason: "Skipped (run cancelled)" });
     }
     if (!_scanJobs.some((j) => !j.done)) {

@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.87.0] - 2026-11-25
+
+### Changed
+- Run Scan page redesign: Target, "What to run" (scan types + layers), and Options are now three grouped cards with tighter field spacing instead of one long stacked form.
+- Container Image and Local Model are no longer Scan Type checkboxes — they're each their own "Scanning" pill toggle above the Target field (alongside Project/Repository), since neither combines with anything else and each changes what the Target field means. Selecting either skips the "What to run" modal entirely (nothing to configure) and starts the scan directly; the Target field, its label/hint, and the upload toggle relabel accordingly.
+- Scan Types (Full, Quick, STIG) render as selectable pill chips (icon + title, with a tooltip naming the actual tools/layers each runs) instead of long sentence-style checkbox labels. Full, Quick, and STIG are mutually exclusive — they're three different scan depths, not combinable choices — so selecting one deselects the other two. The now-pointless Select All/None controls were removed from Scan Types.
+- The Scan Layers picker is expanded by default (still collapsible) and now also applies to Quick (previously Full/Baseline only) — showing only the layers Quick actually honors (SBOM, TruffleHog, Trivy, Grype, pip-audit), since the backend hard-skips everything else in Quick mode regardless of checkbox state. "Select All" in Scan Layers now also enables the Garak and STIG opt-in add-ons (still require `OPENAI_API_KEY`); "Select None" clears them too.
+- `Nightly` and `Baseline` are no longer offered as scan types on the Run Scan page — both behave identically to `Full` for a manually-submitted scan (Nightly only differs by excluding STIG, which `Full` already treats as opt-in; Baseline has no distinct layer-gating or trend/drift semantics anywhere in the backend). Both remain accepted by the CLI/API and existing scan history groupings are unchanged.
+
 ## [3.84.0] - 2026-11-24
 
 ### Added

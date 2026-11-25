@@ -23,6 +23,8 @@ line references were checked against `main` at 3.73.0 (PR #282 in review).
 | 12 | Jira button on the STIG drawer | Bug (fixed in #291) |
 | 13 | Optional justification that never overwrites evidence | Feature (done in 3.81.0) |
 | 14 | Projects: pairing repos, repos in many projects, front-end/back-end STIG pairing | Feature (done in 3.79.0-3.82.0; Jira mapping open) |
+| 15 | Shared evidence model across Epyon, ETK/Quartz and ATO Ready | Design (next priority) |
+| 16 | Project third-party assets register | Plan (part of the Projects work) |
 
 ## Decisions so far (confirmed by product owner)
 
@@ -36,9 +38,20 @@ line references were checked against `main` at 3.73.0 (PR #282 in review).
 | 7, 8, 9 | Accepted as directional; each still needs measurement before removal (see sections). |
 | 10 | quartz-evaluator is **not** in the `demo/quartz-evaluator` branch; treat as an external dependency (see section 10). |
 
+## Reviewer direction (latest)
+
+- **Keep going:** the third-party assets work and the accomplishment-metrics cleanup.
+- **Hold:** major AI/STIG architecture changes (items 1, 11, 13 follow-ons, the
+  checklist-assessment plan, and anything that changes how the AI assesses controls)
+  until the other review comes back. Bug fixes and UI polish on shipped STIG features
+  are not affected.
+- **Next to nail down:** a shared evidence model across Epyon, ETK/Quartz and ATO Ready
+  (item 15). Items 7–10 (debloat, smaller containers, lite mode, quartz-evaluator) stay
+  analysis-only; item 10 feeds item 15.
+
 ## Remaining open questions
 
-None blocking. Items still need reviewer sign-off on viability.
+Items still need reviewer sign-off on viability. Open design work is in item 15.
 
 ---
 
@@ -442,3 +455,160 @@ mappings, and remediation text.
 - *Still open:* how a project maps to Jira keys (proposed: a default key per project, with
   the per-app key as an override); automatic control-to-role mapping by CCI/SRG (today only
   the explicit override file).
+
+## 15. Shared evidence model: Epyon, ETK/Quartz and ATO Ready
+
+**Status:** design only. Do this before more AI/STIG architecture work, so that work
+targets an agreed contract instead of Epyon-only fields.
+
+**Goal:** one evidence record that all three tools can produce and consume, so a finding
+or control assessment keeps its meaning as it moves between tools and up to the system.
+
+**Starting point in Epyon:** ETK-format records (`scripts/shell/stig_records.py`) already
+carry `owner`, `assessment_method`, `component_statuses` and `human_review`; project
+roll-up (item 14) already defines a status rule. These are the candidate base, not the
+final contract.
+
+**Decisions needed**
+
+| Area | Question | Epyon today |
+|---|---|---|
+| Provenance | Which fields say who or what produced a record: tool and version, scan id, commit SHA, input hashes (`scan-manifest.json`), model and prompt for AI output, and the citations that support it? | Partly: manifest hash, ETK citations; AI model not recorded per record |
+| Common statuses | One status vocabulary and mapping. Epyon uses Not a Finding / Not Applicable / Open / Not Reviewed; the roll-up adds Undetermined. Quartz uses CAT-I/II/III and INFO severities. ATO Ready's terms are not yet mapped. | Four statuses plus Undetermined in roll-up only |
+| Human review | What a review record holds (reviewer, time, scope, the evidence it covers), when it locks, and when it expires or is invalidated by a change. | `human_review` plus path-based locking; confidence >= 85 freeze |
+| System roll-up | How component records combine into a system-level control, including inheritance, "not required" roles and partial satisfaction. | Item 14 rule and `project-roles.json`; per-repo only |
+| Identity | Stable ids for controls, components and findings across tools (V-number, CCI, NIST control, fingerprint). | `finding_fingerprint()`, V-numbers |
+| Versioning | Schema version, and what a consumer does with unknown fields or statuses. | None |
+
+**Suggested approach**
+1. Write the schema as a short spec (JSON Schema plus a status mapping table) in
+   `docs/architecture/`, reviewed with the ETK/Quartz and ATO Ready owners.
+2. Map existing Epyon outputs (`stig-results-{slug}.json`, ETK records,
+   `security-findings-summary.json`) to it without changing behaviour.
+3. Run the quartz-evaluator spike (item 10) and map its CAT/NIST output to the same schema.
+4. Only then revisit item 14's open roll-up questions and any AI/STIG changes.
+
+**Out of scope until the other review returns:** changing how the AI assesses controls
+or the prompt and freeze logic.
+
+## 16. Project third-party assets register
+
+**Status:** plan. Part of the Projects work (item 14); not started.
+
+**Problem:** SBOMs only cover what a repo itself builds (its own and dev dependencies).
+They do not tell a project which third-party assets it consumes: external products,
+vendored code, base images, models, charts, SaaS and services. Nobody can answer "what
+third-party assets do we have, and where should we look when something goes wrong?"
+
+**Meaning of "third-party asset":** anything the project uses but does not author and that
+is not already tracked as a package in a member repo's SBOM. A CVE in third-party code that
+is vendored into or built with our code base is already found, triaged and fixed by the
+normal scans, so this register does not re-run vulnerability triage for it. Its extra value
+is (a) an inventory, and (b) **trust evidence**: a periodic look at the asset's own
+security posture.
+
+**Decisions made**
+- Include non-scannable assets (SaaS, external services, vendored code), so the register
+  is complete even when no scanner applies.
+- Refresh **monthly**, not every scan. Scans keep finding CVEs in code we build.
+- Data is both **derived** (from scan outputs) and **stored** (per project, with history).
+
+### 16a. Data model
+
+Stored per project in `web/data/project-assets/{project}.json` (volume-mounted, same
+pattern as `web/data/stig-edits/`). Non-secret fields only.
+
+| Field | Notes |
+|---|---|
+| `id` | Stable slug, unique within the project |
+| `name`, `version`, `vendor` | Version optional for services |
+| `type` | `library`, `image`, `model`, `chart`, `vendored`, `saas`, `service`, `tool` |
+| `source` | `declared` (entered by a person) or `discovered` (from a scan) |
+| `purl` / `url` | Package URL or homepage, when known |
+| `used_by` | List of `{repo, role}` (frontend, backend, infra) so issues can be traced to where it is used |
+| `data_sensitivity`, `criticality` | Optional; helps decide where to look first |
+| `owner` | Person or team who answers for it |
+| `scannable` | Whether Epyon can scan it (an artifact, repo or image exists) |
+| `trust` | Latest trust check: date, tool and scan id, summary, findings counts, and a status |
+| `trust_history` | Previous checks, newest first |
+| `provenance` | Who added it and when; for discovered entries, the scan id and commit |
+| `notes` | Free text |
+
+Use the status vocabulary and provenance fields agreed in item 15 once defined; until then
+`trust.status` is one of `trusted`, `review`, `concern`, `not_assessed`.
+
+### 16b. Where entries come from
+
+1. **Declared:** a person adds them on the project page (name, type, used by, owner).
+   This is the only route for SaaS and services.
+2. **Discovered:** suggested from scans, accepted by a person. Candidates: base images
+   (Trivy/Dockerfile `FROM`), Helm chart dependencies, models (layers 14/18), vendored
+   directories, and third-party GitHub Actions. Discovered candidates are not added
+   automatically; they appear in a "suggested" list to avoid noise.
+3. Direct package dependencies stay in the SBOM and are **not** duplicated here, but each
+   asset can link to the SBOM component when it is also one.
+
+### 16c. Monthly trust check
+
+- A scheduled job (the web-UI cron from item 6; a manual "Check now" button also works)
+  runs once a month per project over assets with `scannable: true`.
+- It reuses existing tools (Syft/Grype/Trivy for artifacts and images, the layer 18
+  provenance check for models) against the asset's own artifact. It is not a full 21-layer scan.
+- Results update `trust` and push the old value onto `trust_history`. Non-scannable
+  assets are not checked; they show "not assessed" and an optional review-due date the
+  owner confirms manually.
+- Any failure to reach an asset is shown as "check failed", never as trusted.
+- Cap work per run (number of assets, per-asset timeout), and use the SSRF guard for any
+  user-supplied URL. No credentials are stored in the register.
+
+**Not in this phase:** an "outdated" check (is a newer version available?). Deferred. It
+needs registry lookups and per-ecosystem logic. Revisit if owners ask for it.
+
+### 16d. API
+
+All under `/api/projects/{name}/assets`, following the router pattern in `web/api/routers/`:
+- `GET` list with filters (type, status, repo, owner, scannable); includes suggested entries.
+- `POST` add; `PATCH /{id}` edit; `DELETE /{id}` remove (history kept).
+- `POST /{id}/accept` turns a discovered suggestion into an entry.
+- `POST /check` runs the trust check for the project or a selected asset (async job).
+- `GET /export?format=csv|cyclonedx` for ATO packages.
+
+Validate every body with Pydantic; reject path traversal in names; never accept tokens.
+
+### 16e. UI
+
+A "Third-party assets" tab on the project page, next to the STIG roll-up:
+- Summary strip: total assets, by type, by trust status, not assessed, checks overdue, and
+  new suggestions.
+- Filterable table: name, version, type, used by (repo and role), owner, trust badge,
+  last checked. Group by type, repo or status.
+- Row click opens the right-hand drawer (same pattern as STIG) with details, trust
+  history, linked SBOM component, and a Jira button.
+- "Add asset" form and a "Suggested" panel with accept and dismiss.
+- Reuse the existing badges; add a type icon per asset type.
+
+### 16f. Build order
+
+1. Data store and API (CRUD, filters, export). Declared assets only.
+2. Project-page tab: table, drawer, add form, summary strip.
+3. Discovery suggestions from existing scan outputs.
+4. Monthly trust check job and history display.
+5. Align field names and statuses with the shared evidence model (item 15).
+
+**Tests:** API unit tests with the existing patching approach (`api.main`), BATS tests
+for any new shell script, and `npm run build` plus `npm run check` for the SPA bundle.
+
+**Decisions on the earlier open questions**
+- An asset can be shared across projects (many-to-many, like repos in item 14). Its
+  trust history lives once on the asset; `used_by` is recorded per project.
+- The default owner is the system owner (the owner of the project's system / ATO boundary)
+  when none is set.
+- `trust.status` is `concern` when a check finds any high or critical finding; otherwise
+  `trusted`, or `review` when a person has flagged it.
+- An accepted suggestion keeps its link to the scan that suggested it. Store the scan id,
+  commit and a snapshot of the discovering evidence in `provenance`, so the link
+  still makes sense after the scan is pruned.
+
+**Implication for the data model:** because assets are shared, store them in a
+cross-project file (`web/data/project-assets/assets.json`) with each project holding
+references (`asset_id`, `used_by`) instead of one file per project. Update 16a when building.

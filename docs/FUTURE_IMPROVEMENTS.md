@@ -1,18 +1,19 @@
 # Future Improvements — Planning Notes
 
-Status: **planning only, nothing here is implemented. Awaiting reviewer sign-off on viability before work starts.** Items 1–5 are product changes
-to scope; items 6–10 are analysis questions. File and line references were checked
-against `main` at 3.73.0 (PR #282 in review).
+Status: items 1, 2, 4, 5, 11, 12, 13 are **done**; item 3 is **partially done** (see its
+entry); item 14 is **mostly done**, with Jira-key mapping and automatic control-to-role
+mapping still open. Items 6–10 remain analysis-only questions, not yet started. File and
+line references were checked against `main` at 3.73.0 (PR #282 in review).
 
 ## Contents
 
 | # | Item | Type |
 |---|------|------|
-| 1 | Run STIG for selected control(s) | Feature |
-| 2 | STIG Findings page UI tightening | UI |
-| 3 | Hide tools that did not run (scan detail) | UI/data |
-| 4 | Run Scan page redesign (4a–4d) | UI |
-| 5 | Move STIG History & MTTR to the Metrics page | UI |
+| 1 | Run STIG for selected control(s) | Feature (done in 3.84.0) |
+| 2 | STIG Findings page UI tightening | UI (done in 3.85.0) |
+| 3 | Hide tools that did not run (scan detail) | UI/data (partially done in 3.86.0 — see entry) |
+| 4 | Run Scan page redesign (4a–4d) | UI (done in 3.87.0) |
+| 5 | Move STIG History & MTTR to the Metrics page | UI (done in 3.88.0) |
 | 6 | Web-UI cron for scheduled scans | Analysis |
 | 7 | Where to debloat Epyon | Analysis |
 | 8 | Smaller containers | Analysis |
@@ -92,6 +93,14 @@ for non-STIG score comparisons.
 
 ## 2. STIG Findings page UI
 
+> **Shipped in 3.85.0.** Stat cards (Open / Not a Finding / N/A / Evidence needed / Total)
+> are now clickable buttons that double as the status filter (`aria-pressed`), replacing
+> the old duplicate status-chip row. Severity and STIG filters are a compact segmented
+> control on one row alongside the search box. The three per-STIG downloads (.md/.cklb/.json)
+> collapse into one "Export ▾" menu. Run STIG / Add to Jira / Lock now appear only as a
+> bulk-action bar when rows are checked. Sticky header, badge styling, row height, and
+> keyboard/screen-reader behavior are unchanged.
+
 **Observed (screenshot):** status and severity chips are tightly stacked with uneven
 label alignment; the search box is a lone row; "286 controls / Add to Jira / Lock" sit on a
 fourth line; five stat boxes plus three download buttons make the top heavy; plain
@@ -109,6 +118,20 @@ header row, no sticky controls.
 - Keep keyboard and screen-reader behaviour (labels on controls, `aria-pressed` on segments).
 
 ## 3. Hide tools that did not run
+
+> **Partially shipped in 3.86.0:** `layers_requested` is now recorded in `scan-metadata.json`
+> for every web UI-triggered scan (standard, container-image, local-model, and STIG
+> re-run), derived from the explicit Run Scan page layer picker or the scan mode's
+> default set (`SCAN_MODE_LAYER_DEFAULTS` in `jobs.py`, mirroring
+> `docs/scanning/SCAN_MATRIX.md`). The ML/AI Security card uses it: it no longer renders
+> at all when none of layers 14/15/18/19/20 were requested, instead of always showing
+> an empty shell. Not done: the same `not_requested` gating for SBOM/API
+> discovery/network discovery/misconfigurations cards (they still rely on the
+> "empty data → hide" heuristic, which doesn't distinguish "ran with zero findings"
+> from "never requested"); the per-tool `ran`/`failed`/`skipped`/`not_requested` state
+> in the parser and `tools_analyzed` filtering described below; CLI-triggered
+> (`epyon.sh`/`run-target-security-scan.sh`) scans still don't record `layers_requested`
+> at all, so they always fall back to the pre-existing heuristic.
 
 **Data available:** `tools_analyzed` (what the page shows today), per-layer
 `<layer>/status.json` (`status`: ok/failed/error/skipped + `reason`, already read by
@@ -131,6 +154,16 @@ start (the mode matrix plus the user's layer selection), derive a per-tool state
 status.json".
 
 ## 4. Run Scan page
+
+> **Shipped in 3.87.0.** The Target card now has a "Scanning" pill toggle
+> (Project/Repository, Container Image, Local Model) separate from the
+> What-to-run modal; Scan Types render as selectable pill chips (icon +
+> title + tooltip description) with Full/Quick/STIG mutually exclusive;
+> Scan Layers is expanded by default when Full or Quick is selected (Quick
+> shows only the layers it actually honors); `nightly` and `baseline` are
+> no longer offered as scan types in the UI (still accepted by CLI/API);
+> redundant Select All/None controls were removed from Scan Types. See
+> `web/src/pages/new-scan.js`.
 
 - **4a Compact/grouped:** tighten vertical spacing; group into three clear cards —
   *Target* (source, app name, monitoring), *What to run* (scan types + layers),

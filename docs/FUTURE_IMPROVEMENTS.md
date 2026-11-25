@@ -146,6 +146,16 @@ status.json".
 
 ## 4. Run Scan page
 
+> **Shipped in 3.87.0.** The Target card now has a "Scanning" pill toggle
+> (Project/Repository, Container Image, Local Model) separate from the
+> What-to-run modal; Scan Types render as selectable pill chips (icon +
+> title + tooltip description) with Full/Quick/STIG mutually exclusive;
+> Scan Layers is expanded by default when Full or Quick is selected (Quick
+> shows only the layers it actually honors); `nightly` and `baseline` are
+> no longer offered as scan types in the UI (still accepted by CLI/API);
+> redundant Select All/None controls were removed from Scan Types. See
+> `web/src/pages/new-scan.js`.
+
 - **4a Compact/grouped:** tighten vertical spacing; group into three clear cards —
   *Target* (source, app name, monitoring), *What to run* (scan types + layers),
   *Options* (AI, schedule/advanced). Reduce label/field gaps so related controls read as one unit.

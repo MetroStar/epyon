@@ -30,10 +30,24 @@ export async function renderNewScan(prefill = '') {
           Epyon orchestrates all applicable security layers based on the selected scan type.` })}
 
     <div class="section">
-      <div class="section-title">Scan Configuration</div>
-      <div class="result-section-box">
-        <div class="form-group">
-          <label>Source</label>
+      <div class="scan-config-grid">
+
+        <div class="result-section-box scan-config-card">
+          <div class="result-section-box-title">Target</div>
+          <div class="form-group form-group-tight">
+            <label>Scanning</label>
+            <div class="scan-layer-pill-grid" id="target-kind-ctrl">
+              <button type="button" class="scan-layer-pill active" data-value="project" id="target-kind-project-btn"
+                ${act('_setTargetKind', 'project')}>📁 Project / Repository</button>
+              <button type="button" class="scan-layer-pill" data-value="image" id="target-kind-image-btn"
+                ${act('_setTargetKind', 'image')}>📦 Container Image</button>
+              <button type="button" class="scan-layer-pill" data-value="local_model" id="target-kind-local-model-btn"
+                ${act('_setTargetKind', 'local_model')}>🧠 Local Model</button>
+            </div>
+            <small>Container Image and Local Model each scan a different kind of target on their own (no scan type/layer choice needed) — pick Project/Repository for everything else.</small>
+          </div>
+          <div class="form-group form-group-tight">
+            <label>Source</label>
             <div class="seg-ctrl" id="target-mode-ctrl">
               <button type="button" class="seg-btn active" data-value="path" id="target-mode-path-btn"
                 ${act('_setTargetMode', 'path')}>Path / Git URL</button>
@@ -45,7 +59,7 @@ export async function renderNewScan(prefill = '') {
               "Upload archive" to scan a local, not-yet-pushed project instead.</small>
           </div>
 
-          <div class="form-group" id="std-target-field">
+          <div class="form-group form-group-tight" id="std-target-field">
             <label for="scan-target">Target</label>
             <input type="text" id="scan-target" autocomplete="off" spellcheck="false"
               placeholder="/absolute/path/to/project  or  https://github.com/org/repo.git"
@@ -53,59 +67,14 @@ export async function renderNewScan(prefill = '') {
             <small id="scan-target-hint">Absolute local directory path, relative path, or Git repository URL (HTTPS/SSH)</small>
           </div>
 
-          <div class="form-group" id="upload-target-field" style="display:none">
+          <div class="form-group form-group-tight" id="upload-target-field" style="display:none">
             <label for="scan-upload" id="scan-upload-label">Project archive (.zip / .tar.gz)</label>
             <input type="file" id="scan-upload" accept=".zip,.tar,.tar.gz,.tgz,.tar.bz2,.tar.xz" />
             <small id="scan-upload-hint">Zip or tar the project directory (e.g. <code>zip -r project.zip project/</code> or <code>tar -czf project.tar.gz project/</code>) and
               upload it here. Extracted on the server and scanned like a local path.</small>
           </div>
 
-          <div class="form-group">
-            <label>Scan Types</label>
-            <div style="margin-bottom:8px">
-              <button type="button" class="btn btn-sm" ${act('setScanTypeCheckboxes', true)}>Select All</button>
-              <button type="button" class="btn btn-sm" ${act('setScanTypeCheckboxes', false)}>Select None</button>
-            </div>
-            <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(160px, 1fr));gap:8px">
-              ${SCAN_TYPE_OPTIONS.map(t => `
-                <label style="display:flex;align-items:center;gap:6px;font-size:12px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;background:var(--bg-input)">
-                  <input type="checkbox" class="scan-type-checkbox" value="${t.id}"
-                    ${t.id === 'full' ? 'checked' : ''} ${actOn('change','_onScanTypeSelectionChange')}>
-                  <span>${esc(t.label)}</span>
-                </label>`).join('')}
-            </div>
-            <small>Select one or more scan types to run sequentially against the same target.</small>
-          </div>
-
-          <div class="form-group" id="scan-layer-picker-wrapper">
-            <label>Scan Layers</label>
-            ${renderScanLayerPicker()}
-            <small>Only applies to Full, Nightly and Baseline scan types — Quick, STIG, and Local Model always run their fixed layer set.</small>
-          </div>
-
-          <div class="form-group" id="garak-checkbox-row">
-            <label>Garak LLM Scan (Layer 12)</label>
-            <div class="seg-ctrl" id="garak-ctrl">
-              <button type="button" class="seg-btn active" data-value="off"
-                ${act('_setGarak', 'off')}>Off</button>
-              <button type="button" class="seg-btn" data-value="on"
-                ${act('_setGarak', 'on')}>On</button>
-            </div>
-            <small>Requires <code>OPENAI_API_KEY</code> to be set.</small>
-          </div>
-
-          <div class="form-group" id="stig-checkbox-row">
-            <label>STIG Compliance (Layer 13)</label>
-            <div class="seg-ctrl" id="stig-ctrl">
-              <button type="button" class="seg-btn active" data-value="off"
-                ${act('_setStig', 'off')}>Off</button>
-              <button type="button" class="seg-btn" data-value="on"
-                ${act('_setStig', 'on')}>On</button>
-            </div>
-            <small>Requires <code>OPENAI_API_KEY</code> to be set.</small>
-          </div>
-
-          <div class="form-group">
+          <div class="form-group form-group-tight">
             <label>Monitoring Type</label>
             <div class="seg-ctrl" id="monitoring-type-ctrl">
               <button type="button" class="seg-btn active" data-value="evaluation"
@@ -119,11 +88,18 @@ export async function renderNewScan(prefill = '') {
             </div>
             <small>Continuous apps are tracked in Metrics. Evaluation apps are excluded.</small>
           </div>
-
-          <button id="run-btn" class="btn btn-primary" style="width:100%;justify-content:center" ${act('submitScan')}>
-            ▶ Run Scan
-          </button>
         </div>
+
+      </div>
+
+      <div class="scan-run-bar">
+        <div class="scan-run-bar-hint">
+          <strong id="scan-run-bar-summary">What to run: Full (all layers)</strong>
+          <div>Choose scan types and layers, then start the run.</div>
+        </div>
+        <button id="run-btn" class="btn btn-primary scan-run-btn" ${act('_openWhatToRunModal')}>
+          ▶ Run Scan
+        </button>
       </div>
     </div>
 
@@ -309,29 +285,216 @@ export function startNewScanRun() {
   renderNewScan();
 }
 
-// Scan types selectable in the "Scan Types" checkbox picker — mirrors the
-// self-diagnostic layer picker's select-all/select-none + checkbox grid UX.
+// Scan types selectable in the "Scan Types" picker, now rendered as
+// selectable chip cards (icon + title + one-line description) instead of
+// long sentence-style checkbox labels. `label` keeps the fuller sentence
+// used in log headers and result tables elsewhere on this page.
+// "Nightly" is intentionally not offered here — it is accepted by the
+// CLI/API for the GitHub Actions schedule and historical scans (the
+// "Full / Nightly" history tab groups them), but behaves identically to
+// `full` for a manually-submitted scan except that STIG (Layer 13) is
+// excluded, which `full` already treats as opt-in anyway.
+// "Baseline" is also not offered here — every layer-gating check in the
+// backend (run-epyon-scan-ci.sh, optInModes below) treats it identically
+// to `full`, and nothing marks a baseline scan as a distinct reference
+// point for trend/drift comparisons, so it was a same-behavior duplicate
+// of Full with a different label. Still accepted by the CLI/API (existing
+// historical scans use it, and the "Other" Scan History tab still groups it).
 const SCAN_TYPE_OPTIONS = [
-  { id: 'full',        label: 'Full — All security layers (recommended)' },
-  { id: 'quick',       label: 'Quick — Fast check: Trivy, TruffleHog, SBOM' },
-  { id: 'nightly',     label: 'Nightly — Scheduled comprehensive scan (layers 1–12)' },
-  { id: 'baseline',    label: 'Baseline — Establish initial security benchmark (all layers)' },
-  { id: 'stig',        label: 'STIG — STIG compliance assessment only (on demand)' },
-  { id: 'local_model', label: 'Local Model — Scan model weights in a local directory (layers 14–15)' },
-  { id: 'container_image', label: 'Container Image — Scan a local/registry/URL image (TruffleHog, Trivy, Grype, Xeol)' },
+  { id: 'full',        label: 'Full — All security layers (recommended)',
+    icon: '🛡️', title: 'Full',
+    desc: 'Every layer below (SBOM, secrets, malware, IaC, container, vuln, dependency, SAST, EOL, model/ML, network, etc.) — pick exactly which ones in Scan Layers below. Garak and STIG are available there too as opt-in add-ons.' },
+  { id: 'quick',       label: 'Quick — Fast check: SBOM, TruffleHog, Trivy, Grype, pip-audit, npm audit, Semgrep, Safety',
+    icon: '⚡', title: 'Quick',
+    desc: 'A fast subset: SBOM (Syft), Secret Detection (TruffleHog), Container Security (Trivy), Vulnerability Scanning (Grype), Direct Dependency Scanning (pip-audit), Node Dependency Audit, SAST (Semgrep), and Python Safety Check — the first five can be toggled off individually in Scan Layers below.' },
+  { id: 'stig',        label: 'STIG — STIG compliance assessment only (on demand)',
+    icon: '📋', title: 'STIG',
+    desc: 'Only the AI-powered STIG compliance assessment (Layer 13) against the configured STIG checklists — no other security layers run. Requires OPENAI_API_KEY.' },
 ];
+// 'container_image' and 'local_model' are intentionally not Scan Type
+// checkboxes here — unlike the types above, neither is combinable with
+// anything else and each changes what the Target field *means* (an image
+// ref/tarball, or a local model-weights directory, instead of a path/Git
+// URL), so they're each their own "Scanning" toggle (target-kind-ctrl)
+// above the Target field instead. See _setTargetKind/_applyTargetKindUI.
+// The labels below are kept so SCAN_TYPE_OPTIONS.find(...)-style lookups
+// (job labels, history) still resolve a friendly title for jobs submitted
+// with that type.
+const CONTAINER_IMAGE_TYPE = { id: 'container_image', label: 'Container Image — Scan a local/registry/URL image (TruffleHog, Trivy, Grype, Xeol)',
+  icon: '📦', title: 'Container Image', desc: 'Scan a local/registry/URL image' };
+const LOCAL_MODEL_TYPE = { id: 'local_model', label: 'Local Model — Scan model weights in a local directory (layers 14–15)',
+  icon: '🧠', title: 'Local Model', desc: 'Scan model weights in a local directory' };
+// Kept only for label lookups (job/history display) of pre-existing
+// baseline-type scans — not offered as a checkbox, see comment above.
+const BASELINE_TYPE = { id: 'baseline', label: 'Baseline — Establish initial security benchmark (all layers)',
+  icon: '📐', title: 'Baseline', desc: 'Establish initial security benchmark' };
+// Used only for label lookups (job/history display) — never rendered as a
+// checkbox grid, see CONTAINER_IMAGE_TYPE comment above.
+const ALL_SCAN_TYPES = [...SCAN_TYPE_OPTIONS, CONTAINER_IMAGE_TYPE, LOCAL_MODEL_TYPE, BASELINE_TYPE];
 
-export function setScanTypeCheckboxes(checked) {
-  document.querySelectorAll('.scan-type-checkbox').forEach(cb => { cb.checked = checked; });
+// Full, Quick, and STIG are three different scan depths/purposes, not
+// combinable choices — selecting one deselects the other two.
+// See _onScanTypeToggle.
+const EXCLUSIVE_SCAN_TYPES = ['full', 'quick', 'stig'];
+
+// ── "What to run" modal ───────────────────────────────────────
+// Scan Types + Scan Layers moved out of a third page card into a modal
+// opened from the prominent Run Scan CTA, so the choice (and the Start
+// button that actually launches the scan) get the user's full attention
+// instead of competing with Target/Options for space on the page.
+// Selections persist across opens via these module vars (not DOM state,
+// since the modal's markup is torn down on close).
+let _modalScanTypeIds  = ['full'];  // at least one always selected
+let _modalScanLayerIds = null;      // null == every layer (the default)
+let _modalRunGarak = false;         // Layer 12 — opt-in, requires OPENAI_API_KEY
+let _modalRunStig  = false;         // Layer 13 — opt-in, requires OPENAI_API_KEY
+
+// Which Scan Layers set to render: Quick only ever honors QUICK_LAYER_NUMS,
+// everything else (Full/Baseline) gets the full picker. Tracked separately
+// from _modalScanTypeIds so _onScanTypeSelectionChange only regenerates the
+// picker body's DOM (losing in-progress checkbox picks) when the available
+// layer set actually changes, not on every pill click.
+function _currentLayerPickerMode() {
+  return _modalScanTypeIds.includes('quick') ? 'quick' : 'full';
+}
+let _lastLayerPickerMode = _currentLayerPickerMode();
+
+function _whatToRunBody() {
+  return `
+    <div class="form-group form-group-tight">
+      <label>Scan Types</label>
+      <div class="scan-layer-pill-grid">
+        ${SCAN_TYPE_OPTIONS.map(t => _layerPill({
+          cls: 'scan-type-checkbox', value: t.id, checked: _modalScanTypeIds.includes(t.id),
+          label: `${t.icon} ${esc(t.title)}`, title: t.desc,
+          onChange: '_onScanTypeToggle', onChangeArgs: [{ $: 'value' }, { $: 'checked' }],
+        })).join('')}
+      </div>
+      <small>Full, Quick, and STIG are mutually exclusive (three different scan depths) — select one of them.</small>
+    </div>
+
+    <div class="form-group form-group-tight" id="scan-layer-picker-wrapper">
+      <label>Scan Layers</label>
+      <div id="scan-layer-picker-body">${renderScanLayerPicker(_currentLayerPickerMode())}</div>
+      <small>Only applies to Full, Quick, and Baseline scan types (Quick shows only the layers it actually runs) — STIG and Nightly (CLI/schedule only) always run their fixed layer set. Garak and STIG are opt-in add-ons for Full and require <code>OPENAI_API_KEY</code> to be set.</small>
+    </div>`;
+}
+
+export function _openWhatToRunModal() {
+  // Container Image and Local Model scanning each have nothing to
+  // configure here (no scan type/layer/Garak/STIG choice applies) — start
+  // them directly instead of opening an irrelevant modal.
+  if (_isContainerImageMode()) {
+    submitScan(['container_image'], null, false, false);
+    return;
+  }
+  if (_isLocalModelMode()) {
+    submitScan(['local_model'], null, false, false);
+    return;
+  }
+  document.querySelector('.modal-overlay')?.remove();
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `
+    <div class="modal-container modal-xl modal-flex" role="dialog" aria-modal="true" aria-labelledby="what-to-run-title">
+      <div class="modal-flex-header">
+        <h2 id="what-to-run-title" style="margin:0">What to run</h2>
+        <button class="btn btn-sm" ${act('_closeWhatToRunModal')}>✕</button>
+      </div>
+      <div class="modal-flex-body">
+        ${_whatToRunBody()}
+      </div>
+      <div class="modal-actions modal-flex-footer">
+        <button class="btn" ${act('_closeWhatToRunModal')}>Cancel</button>
+        <button class="btn btn-primary" ${act('_confirmStartScan')}>▶ Start Scan</button>
+      </div>
+    </div>`;
+  overlay.addEventListener('click', e => { if (e.target === overlay) _closeWhatToRunModal(); });
+  document.body.appendChild(overlay);
+  // Pre-checked layers/add-ons come from module state (null layers == all);
+  // apply before syncing visibility/pill state so the summary line reflects
+  // the real selection.
+  if (_modalScanLayerIds) {
+    document.querySelectorAll('.scan-layer-checkbox').forEach(cb => {
+      cb.checked = _modalScanLayerIds.includes(cb.value);
+    });
+  }
+  const garakCb = document.getElementById('garak-layer-checkbox');
+  if (garakCb) garakCb.checked = _modalRunGarak;
+  const stigCb = document.getElementById('stig-layer-checkbox');
+  if (stigCb) stigCb.checked = _modalRunStig;
+  _onScanLayerToggle();
   _onScanTypeSelectionChange();
+}
+
+// Captures the modal's current selections into module state, then tears
+// down the overlay. Always saves on close (Cancel included) so an
+// accidental dismiss doesn't discard the user's in-progress picks.
+export function _closeWhatToRunModal() {
+  if (document.querySelector('.scan-type-checkbox')) {
+    _modalScanTypeIds = _getSelectedScanTypes();
+    _modalScanLayerIds = _getSelectedScanLayers();
+    _modalRunGarak = !!document.getElementById('garak-layer-checkbox')?.checked;
+    _modalRunStig  = !!document.getElementById('stig-layer-checkbox')?.checked;
+  }
+  document.querySelector('.modal-overlay')?.remove();
+  _updateRunBarSummary();
+}
+
+export async function _confirmStartScan() {
+  const types = _getSelectedScanTypes();
+  const layers = _getSelectedScanLayers();
+  if (types.length === 0) {
+    toast('Select at least one scan type to run.', 'warning');
+    return;
+  }
+  const runGarak = !!document.getElementById('garak-layer-checkbox')?.checked;
+  const runStig  = !!document.getElementById('stig-layer-checkbox')?.checked;
+  _modalScanTypeIds = types;
+  _modalScanLayerIds = layers;
+  _modalRunGarak = runGarak;
+  _modalRunStig = runStig;
+  document.querySelector('.modal-overlay')?.remove();
+  _updateRunBarSummary();
+  await submitScan(types, layers, runGarak, runStig);
+}
+
+function _updateRunBarSummary(types, layers) {
+  const el = document.getElementById('scan-run-bar-summary');
+  if (!el) return;
+  if (_isContainerImageMode()) {
+    el.textContent = 'What to run: Container Image scan';
+    const hint = el.parentElement?.querySelector('div');
+    if (hint) hint.textContent = 'Click Run Scan to scan the image above.';
+    return;
+  }
+  if (_isLocalModelMode()) {
+    el.textContent = 'What to run: Local Model scan';
+    const hint = el.parentElement?.querySelector('div');
+    if (hint) hint.textContent = 'Click Run Scan to scan the model directory above.';
+    return;
+  }
+  const typeIds = types || _modalScanTypeIds;
+  const layerIds = layers !== undefined ? layers : _modalScanLayerIds;
+  const typeLabels = SCAN_TYPE_OPTIONS.filter(t => typeIds.includes(t.id)).map(t => t.title);
+  const typeSummary = typeLabels.length ? typeLabels.join(', ') : 'none selected';
+  const layerSummary = layerIds ? `${layerIds.length} layer(s)` : 'all layers';
+  const addons = [_modalRunGarak && 'Garak', _modalRunStig && 'STIG'].filter(Boolean);
+  const addonSummary = addons.length ? `, + ${addons.join(' + ')}` : '';
+  el.textContent = `What to run: ${typeSummary} (${layerSummary}${addonSummary})`;
+  const hint = el.parentElement?.querySelector('div');
+  if (hint) hint.textContent = 'Choose scan types and layers, then start the run.';
 }
 
 // Layers selectable in the "Scan Layers" picker on the Run Scan page —
 // mirrors the Performance page's self-diagnostic layer picker (SELF_DIAG_LAYERS)
 // and the LAYER_SKIP_ENV mapping in web/api/jobs.py. Layer 3 (Sonar, gated on
-// SONAR_TOKEN), Layer 12 (Garak) and Layer 13 (STIG) are deliberately excluded
-// — they already have their own dedicated opt-in controls below — and Layer 20
-// (ML Runtime) is opt-in-only and not yet exposed as a picker option.
+// SONAR_TOKEN) is excluded. Layer 12 (Garak) and Layer 13 (STIG) are rendered
+// alongside these as separate opt-in pills (see renderScanLayerPicker) since
+// the backend toggles them via dedicated run_garak/run_stig flags, not the
+// LAYER_SKIP_ENV list — "Select All" includes them too (still requires
+// OPENAI_API_KEY to actually run; see setScanLayerCheckboxes).
+// Layer 20 (ML Runtime) is opt-in-only and not yet exposed as a picker option.
 const SCAN_LAYER_OPTIONS = [
   { n: '1',  name: 'SBOM Generation' },
   { n: '2',  name: 'Secret Detection' },
@@ -352,27 +515,69 @@ const SCAN_LAYER_OPTIONS = [
   { n: '21', name: 'Compromised Source Detection' },
 ];
 
-export function renderScanLayerPicker() {
-  const boxes = SCAN_LAYER_OPTIONS.map(l => `
-    <label style="display:flex;align-items:center;gap:6px;font-size:12px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;background:var(--bg-input)">
-      <input type="checkbox" class="scan-layer-checkbox" value="${l.n}" checked>
-      <span>L${l.n} — ${esc(l.name)}</span>
-    </label>`).join('');
+// Quick only ever runs this subset (run-epyon-scan-ci.sh hard-skips every
+// other layer when SCAN_MODE=quick, regardless of SKIP_* overrides) — the
+// picker only lists the layers Quick can actually toggle, so nothing shown
+// is a no-op. Garak/STIG add-ons don't apply to Quick (STIG runs only in
+// full/stig mode; Garak is gated out for quick in the CI script).
+const QUICK_LAYER_NUMS = ['1', '2', '7', '8', '8.5'];
+
+function _layerPill({ cls, id, value, checked, label, title, onChange, onChangeArgs }) {
   return `
-    <details>
+    <label class="scan-layer-pill${checked ? ' active' : ''}"${title ? ` title="${esc(title)}"` : ''}>
+      <input type="checkbox" class="${cls}"${id ? ` id="${id}"` : ''}${value ? ` value="${esc(value)}"` : ''}
+        ${checked ? 'checked' : ''} ${actOn('change', onChange || '_onScanLayerToggle', ...(onChangeArgs || []))}>
+      <span>${label}</span>
+    </label>`;
+}
+
+// `mode` narrows which layers are offered: 'quick' shows only the layers
+// Quick mode actually honors (see QUICK_LAYER_NUMS) and hides the Garak/STIG
+// add-ons (not applicable to Quick); anything else (Full/Baseline) shows the
+// full set plus both add-ons, same as before per-type filtering existed.
+export function renderScanLayerPicker(mode) {
+  const isQuick = mode === 'quick';
+  const layerOptions = isQuick
+    ? SCAN_LAYER_OPTIONS.filter(l => QUICK_LAYER_NUMS.includes(l.n))
+    : SCAN_LAYER_OPTIONS;
+  const boxes = layerOptions.map(l => _layerPill({
+    cls: 'scan-layer-checkbox', value: l.n, checked: true, label: `L${l.n} — ${esc(l.name)}`,
+  })).join('');
+  const addons = isQuick ? '' : [
+    _layerPill({ cls: 'scan-addon-checkbox', id: 'garak-layer-checkbox', checked: _modalRunGarak,
+      label: 'L12 — Garak LLM Scan 🔑', title: 'Requires OPENAI_API_KEY to be set' }),
+    _layerPill({ cls: 'scan-addon-checkbox', id: 'stig-layer-checkbox', checked: _modalRunStig,
+      label: 'L13 — STIG Compliance 🔑', title: 'Requires OPENAI_API_KEY to be set' }),
+  ].join('');
+  return `
+    <details open>
       <summary style="cursor:pointer;font-size:13px;color:var(--text-muted)">Select layers to run (defaults to all)</summary>
       <div style="margin-top:10px">
         <div style="margin-bottom:8px">
           <button type="button" class="btn btn-sm" ${act('setScanLayerCheckboxes', true)}>Select All</button>
           <button type="button" class="btn btn-sm" ${act('setScanLayerCheckboxes', false)}>Select None</button>
         </div>
-        <div style="display:flex;flex-wrap:wrap;gap:8px">${boxes}</div>
+        <div class="scan-layer-pill-grid">${boxes}${addons}</div>
       </div>
     </details>`;
 }
 
 export function setScanLayerCheckboxes(checked) {
   document.querySelectorAll('.scan-layer-checkbox').forEach(cb => { cb.checked = checked; });
+  // "Select All" on a Full/Baseline run means every tool, including the
+  // Garak and STIG opt-in add-ons (they still no-op without
+  // OPENAI_API_KEY); "Select None" clears them too for symmetry.
+  document.querySelectorAll('.scan-addon-checkbox').forEach(cb => { cb.checked = checked; });
+  _onScanLayerToggle();
+}
+
+// Mirrors the chip-active toggling used for scan types: the checkbox stays
+// the source of truth, this just keeps the visible pill fill in sync.
+export function _onScanLayerToggle() {
+  document.querySelectorAll('.scan-layer-pill').forEach(pill => {
+    const cb = pill.querySelector('input');
+    pill.classList.toggle('active', !!cb?.checked);
+  });
 }
 
 // Returns the checked layer numbers, or null if every layer is selected
@@ -390,79 +595,131 @@ export function _getSelectedScanTypes() {
     .filter(cb => cb.checked).map(cb => cb.value);
 }
 
-export function _onScanTypeSelectionChange() {
-  const modes = _getSelectedScanTypes();
+let _targetKind = 'project'; // 'project' | 'image' | 'local_model' — see _setTargetKind
 
+export function _isContainerImageMode() {
+  return _targetKind === 'image';
+}
+
+export function _isLocalModelMode() {
+  return _targetKind === 'local_model';
+}
+
+// Container Image and Local Model are each their own "Scanning" toggle
+// (target-kind-ctrl), not combinable Scan Type checkboxes — see
+// CONTAINER_IMAGE_TYPE/LOCAL_MODEL_TYPE comments. This drives the Target
+// field relabeling previously tied to scan-type selection.
+export function _setTargetKind(value) {
+  _targetKind = value;
+  document.querySelectorAll('#target-kind-ctrl .scan-layer-pill').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.value === value);
+  });
+  _applyTargetKindUI(value);
+  _updateRunBarSummary();
+}
+
+function _applyTargetKindUI(kind) {
+  const isImageOnly = kind === 'image';
+  const isLocalModel = kind === 'local_model';
   const inp = document.getElementById('scan-target');
   const targetLabel = document.querySelector('label[for="scan-target"]');
   const targetHint = document.getElementById('scan-target-hint');
-  const isImageOnly = modes.length === 1 && modes[0] === 'container_image';
   if (inp && !inp.value) {
     inp.placeholder = isImageOnly
       ? 'nginx:1.27-alpine  or  ghcr.io/org/app:tag  or  ./my-image.tar  or  https://example.com/app.tar.gz'
-      : (modes.length === 1 && modes[0] === 'local_model')
-        ? '/absolute/path/to/models  (e.g. /opt/models/llama3)'
-        : '/absolute/path/to/project  or  https://github.com/org/repo.git';
+      : isLocalModel
+      ? '/absolute/path/to/models  (e.g. /opt/models/llama3)'
+      : '/absolute/path/to/project  or  https://github.com/org/repo.git';
   }
-  if (targetLabel) targetLabel.textContent = isImageOnly ? 'Container Image Source' : 'Target';
+  if (targetLabel) targetLabel.textContent = isImageOnly ? 'Container Image Source' : isLocalModel ? 'Model Directory' : 'Target';
   if (targetHint) {
     targetHint.textContent = isImageOnly
       ? 'A registry reference to pull (e.g. ghcr.io/org/app:tag) or an https:// URL to an image tarball. ' +
         'A local image name/tag or tarball path only works if it already exists on THIS SERVER\u2019s filesystem/Docker daemon — ' +
         'for an image on your own machine, use "Upload image tarball" below instead.'
+      : isLocalModel
+      ? 'Absolute local directory path containing model weight files (.pkl, .pt, .safetensors, etc.) and card metadata — scans layers 14–15 only.'
       : 'Absolute local directory path, relative path, or Git repository URL (HTTPS/SSH)';
   }
 
   // Upload mode: repurpose the same "Path / Git URL" vs "Upload" toggle for
-  // image sources when Container Image is the sole selected type — a local
-  // tarball is as much a "not yet on the server" artifact as an unpushed
-  // project directory, so it gets the same upload escape hatch.
+  // image/model sources — a local tarball or model directory is as much a
+  // "not yet on the server" artifact as an unpushed project directory, so
+  // it gets the same upload escape hatch.
   const uploadBtn   = document.getElementById('target-mode-upload-btn');
   const modeHint    = document.getElementById('target-mode-hint');
   const uploadLabel = document.getElementById('scan-upload-label');
   const uploadInput = document.getElementById('scan-upload');
   const uploadHint  = document.getElementById('scan-upload-hint');
-  if (uploadBtn)  uploadBtn.textContent = isImageOnly ? 'Upload image tarball' : 'Upload archive';
+  if (uploadBtn)  uploadBtn.textContent = isImageOnly ? 'Upload image tarball' : isLocalModel ? 'Upload model archive' : 'Upload archive';
   if (modeHint) {
     modeHint.innerHTML = isImageOnly
       ? 'Deployed on a remote server? A typed local tarball path is resolved on the <strong>server\u2019s</strong> ' +
         'own filesystem, not your machine — use "Upload image tarball" to scan a local <code>docker save</code> ' +
         'archive instead (registry references and https:// URLs work fine from the Target field either way).'
+      : isLocalModel
+      ? 'Deployed on a remote server? A typed absolute path is resolved on the <strong>server\u2019s</strong> ' +
+        'own filesystem, not your machine — use "Upload model archive" to scan a local model directory instead.'
       : 'Deployed on a remote server? A typed absolute path is resolved on the <strong>server\u2019s</strong> ' +
         'own filesystem, not your machine — use "Upload archive" to scan a local, not-yet-pushed project instead.';
   }
-  if (uploadLabel) uploadLabel.textContent = isImageOnly ? 'Image archive (.tar / .tar.gz / .tgz)' : 'Project archive (.zip / .tar.gz)';
+  if (uploadLabel) uploadLabel.textContent = isImageOnly ? 'Image archive (.tar / .tar.gz / .tgz)' : isLocalModel ? 'Model directory archive (.zip / .tar.gz)' : 'Project archive (.zip / .tar.gz)';
   if (uploadInput) uploadInput.accept = isImageOnly ? '.tar,.tar.gz,.tgz' : '.zip,.tar,.tar.gz,.tgz,.tar.bz2,.tar.xz';
   if (uploadHint) {
     uploadHint.innerHTML = isImageOnly
       ? 'Produce one with <code>docker save -o image.tar name:tag</code> (or gzip it) and upload it here. ' +
         'Loaded into the server\u2019s Docker daemon and scanned like a registry/local image.'
+      : isLocalModel
+      ? 'Zip or tar the model directory (e.g. <code>zip -r models.zip models/</code> or <code>tar -czf models.tar.gz models/</code>) and ' +
+        'upload it here. Extracted on the server and scanned like a local model directory.'
       : 'Zip or tar the project directory (e.g. <code>zip -r project.zip project/</code> or <code>tar -czf project.tar.gz project/</code>) and ' +
         'upload it here. Extracted on the server and scanned like a local path.';
   }
-  // Show Garak / STIG toggles and the layer picker only if any selected
-  // type supports granular layer control (quick/stig/local_model always
-  // run their own fixed, narrow layer set regardless of these controls).
-  const optInModes = ['full', 'nightly', 'baseline'];
+}
+
+// Full and Quick are functionally two different scan depths, not
+// combinable choices — checking one unchecks the other. STIG is a third,
+// independent scan depth and is likewise mutually exclusive with both.
+export function _onScanTypeToggle(value, checked) {
+  if (checked && EXCLUSIVE_SCAN_TYPES.includes(value)) {
+    EXCLUSIVE_SCAN_TYPES.filter(id => id !== value).forEach(id => {
+      const otherCb = document.querySelector(`.scan-type-checkbox[value="${id}"]`);
+      if (otherCb) otherCb.checked = false;
+    });
+  }
+  _onScanTypeSelectionChange();
+}
+
+export function _onScanTypeSelectionChange() {
+  const modes = _getSelectedScanTypes();
+  _updateRunBarSummary(modes, _getSelectedScanLayers());
+
+  // Reflect checked state as a visible filled pill (not just the native
+  // checkbox) — shared with the layer/Garak/STIG pills below.
+  _onScanLayerToggle();
+
+  // Show the layer picker (scan layers + Garak/STIG add-on pills) only if
+  // any selected type supports granular layer control. STIG has nothing to
+  // pick (a single fixed AI assessment) and hides the picker entirely.
+  // "Nightly" is CLI/API-only now (see SCAN_TYPE_OPTIONS comment) and is no
+  // longer a reachable checkbox value here, but keeping it listed is
+  // harmless and keeps this list aligned with LAYER_SKIP_ENV's opt-in modes.
+  const optInModes = ['full', 'nightly', 'baseline', 'quick'];
   const anyOptIn = modes.some(m => optInModes.includes(m));
-  const garakRow = document.getElementById('garak-checkbox-row');
-  if (garakRow) garakRow.style.display = anyOptIn ? '' : 'none';
-  const stigRow = document.getElementById('stig-checkbox-row');
-  if (stigRow) stigRow.style.display = anyOptIn ? '' : 'none';
   const layerPickerRow = document.getElementById('scan-layer-picker-wrapper');
   if (layerPickerRow) layerPickerRow.style.display = anyOptIn ? '' : 'none';
-}
 
-export function _setGarak(value) {
-  document.querySelectorAll('#garak-ctrl .seg-btn').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.value === value);
-  });
-}
-
-export function _setStig(value) {
-  document.querySelectorAll('#stig-ctrl .seg-btn').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.value === value);
-  });
+  // Quick's picker only offers the layers it actually honors (no Garak/STIG
+  // add-ons) — regenerate the picker body only when switching the
+  // underlying available layer set, not on every pill click, so in-progress
+  // checkbox picks survive toggling types that don't change the set (e.g.
+  // Full <-> STIG <-> Full).
+  const pickerMode = modes.includes('quick') ? 'quick' : 'full';
+  if (anyOptIn && pickerMode !== _lastLayerPickerMode) {
+    const body = document.getElementById('scan-layer-picker-body');
+    if (body) body.innerHTML = renderScanLayerPicker(pickerMode);
+    _lastLayerPickerMode = pickerMode;
+  }
 }
 
 export function _setMonitoringType(value) {
@@ -481,13 +738,17 @@ export function _setTargetMode(value) {
   if (uploadField) uploadField.style.display = value === 'upload' ? '' : 'none';
 }
 
-export async function submitScan() {
-  const selectedTypes = _getSelectedScanTypes();
-  const activeGarak = document.querySelector('#garak-ctrl .seg-btn.active');
-  const runGarak  = activeGarak?.dataset.value === 'on';
-  const activeStig = document.querySelector('#stig-ctrl .seg-btn.active');
-  const runStig   = activeStig ? activeStig.dataset.value === 'on' : false;
-  const selectedLayers = _getSelectedScanLayers();
+// `overrideTypes`/`overrideLayers`/`overrideGarak`/`overrideStig` let callers
+// (the "What to run" modal) pass the selection explicitly, since the modal's
+// checkboxes are torn down from the DOM before the scan actually starts —
+// querying `.scan-type-checkbox`/`.scan-layer-checkbox`/the Garak/STIG pills
+// at that point would find nothing. Falls back to reading the DOM (while the
+// modal is still open) for any other caller.
+export async function submitScan(overrideTypes, overrideLayers, overrideGarak, overrideStig) {
+  const selectedTypes = overrideTypes || _getSelectedScanTypes();
+  const runGarak = overrideGarak !== undefined ? overrideGarak : !!document.getElementById('garak-layer-checkbox')?.checked;
+  const runStig  = overrideStig  !== undefined ? overrideStig  : !!document.getElementById('stig-layer-checkbox')?.checked;
+  const selectedLayers = overrideLayers !== undefined ? overrideLayers : _getSelectedScanLayers();
   const btn       = document.getElementById('run-btn');
   // Runs inside the click gesture, which browsers require for the permission prompt.
   if ('Notification' in window && Notification.permission === 'default') {
@@ -552,7 +813,7 @@ export async function runNextQueuedScan(btn, ctx) {
   const queue = ctx.queue;
   while (queue.length && !_scanQueueCancelled) {
     const scanType = queue.shift();
-    const label = SCAN_TYPE_OPTIONS.find(t => t.id === scanType)?.label || scanType;
+    const label = ALL_SCAN_TYPES.find(t => t.id === scanType)?.label || scanType;
     try {
       // The layer picker only applies to scan types with a flexible layer
       // set (full/nightly/baseline) — quick/stig/local_model always run
@@ -591,7 +852,7 @@ export async function runNextQueuedScan(btn, ctx) {
   }
   while (queue.length) {
     const skippedType = queue.shift();
-    const skippedLabel = SCAN_TYPE_OPTIONS.find(t => t.id === skippedType)?.label || skippedType;
+    const skippedLabel = ALL_SCAN_TYPES.find(t => t.id === skippedType)?.label || skippedType;
     _scanQueueResults.push({ type: skippedType, label: skippedLabel, status: 'fail', reason: 'Skipped (run cancelled)' });
   }
   if (!_scanJobs.some(j => !j.done)) { finishScanQueue(btn); return; }

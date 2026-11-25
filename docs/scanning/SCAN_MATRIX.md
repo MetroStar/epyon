@@ -44,7 +44,7 @@ This table shows which layers run in each scan mode. Layers marked ✅ run by de
 ## Notes
 
 - **`quick`** — Fast feedback on PRs. Runs only the dependency and secrets layers (1, 2, 7, 8, 8.5, 8.6). Completes in ~3–5 minutes.
-- **`nightly`** — Full vulnerability coverage without the expensive AI-powered layers. Ideal for Mon–Sat automated runs.
+- **`nightly`** — Full vulnerability coverage without the expensive AI-powered layers. Ideal for Mon–Sat automated runs. Not offered as a scan type on the Run Scan page (every layer it runs is identical to `full` except STIG, which `full` already treats as opt-in) — it is still accepted by the CLI/API and used by the GitHub Actions schedule; scan history keeps grouping `full`/`nightly` scans together.
 - **`full`** — All layers except STIG by default. STIG (Layer 13) requires explicit opt-in via `run_stig: true` or `scan_mode: stig`.
 - **`stig`** — Runs only Layer 13 (STIG compliance assessment). Skips all other layers.
 - **`stig`** — STIG-only run. Skips layers 1–12 entirely and runs only the Layer 13 compliance assessment.

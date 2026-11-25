@@ -2641,18 +2641,39 @@ epyon install-workflow</pre>
         const out = {};
         for (const c of allControls) out[c.status] = (out[c.status] || 0) + 1;
         return out;
+      }, renderStats = function() {
+        const counts = countsByStatus();
+        const chip = (key, cls, label, num) => `
+        <button type="button" class="stig-total-chip ${cls}${filterStatus === key ? " active" : ""}"
+          aria-pressed="${filterStatus === key}"
+          ${act("setStigFilter", "status", `${key}`)}>
+          <span class="num">${num}</span><span class="lbl">${esc(label)}</span>
+        </button>`;
+        return `
+        ${chip("Open", "open", "Open", counts["Open"] || 0)}
+        ${chip("Not a Finding", "pass", "Not a Finding", counts["Not a Finding"] || 0)}
+        ${chip("Not Applicable", "na", "N/A", counts["Not Applicable"] || 0)}
+        ${chip("Not Reviewed", "nr", "Evidence needed", counts["Not Reviewed"] || 0)}
+        <button type="button" class="stig-total-chip total${filterStatus === "all" ? " active" : ""}"
+          aria-pressed="${filterStatus === "all"}"
+          ${act("setStigFilter", "status", "all")}>
+          <span class="num">${allControls.length}</span><span class="lbl">Total</span>
+        </button>`;
       }, renderTable = function() {
         const rows = filtered();
+        const selCount = _stigJiraSel.size;
+        const countLine = `<div class="stig-viewer-count">${rows.length} control${rows.length !== 1 ? "s" : ""}</div>`;
+        const bulkBar = selCount ? `
+        <div class="stig-bulk-bar" role="toolbar" aria-label="Actions for selected controls">
+          <span class="stig-bulk-count">${selCount} selected</span>
+          <button class="btn" id="stig-rerun-bulk" ${act("openStigRerun", scanId)} title="Reassess only the checked controls into a new scan">▶ Run STIG (${selCount})</button>
+          <button class="btn" id="stig-jira-bulk" ${act("openStigJiraModal", scanId)}>Add to Jira</button>
+          <button class="btn" id="stig-lock-bulk" ${act("openStigBulkLockModal", scanId)}>🔒 Lock</button>
+        </div>` : "";
         if (!rows.length) {
-          return '<div class="stig-empty">No controls match the current filters.</div>';
+          return countLine + bulkBar + '<div class="stig-empty">No controls match the current filters.</div>';
         }
-        return `
-        <div class="stig-viewer-count" style="display:flex;align-items:center;gap:12px">
-          <span>${rows.length} control${rows.length !== 1 ? "s" : ""}</span>
-          <button class="btn" id="stig-jira-bulk" ${act("openStigJiraModal", scanId)} ${_stigJiraSel.size ? "" : "disabled"}>Add ${_stigJiraSel.size || ""} to Jira</button>
-          <button class="btn" id="stig-rerun-bulk" ${act("openStigRerun", scanId)} ${_stigJiraSel.size ? "" : "disabled"} title="Reassess only the checked controls into a new scan">▶ Run STIG ${_stigJiraSel.size ? `(${_stigJiraSel.size})` : ""}</button>
-          <button class="btn" id="stig-lock-bulk" ${act("openStigBulkLockModal", scanId)} ${_stigJiraSel.size ? "" : "disabled"}>🔒 Lock ${_stigJiraSel.size || ""}</button>
-        </div>
+        return countLine + bulkBar + `
         <div class="stig-table-wrap">
           <table class="stig-table">
             <thead>
@@ -2695,53 +2716,58 @@ epyon install-workflow</pre>
             </tbody>
           </table>
         </div>`;
+      }, exportLinks = function() {
+        return data.stigs.map((s) => {
+          const mdUrl = s.md_url || `/api/scans/${encodeURIComponent(scanId)}/stig-findings/${s.slug}.md`;
+          const cklbUrl = s.cklb_url || `/api/scans/${encodeURIComponent(scanId)}/stig-findings/${s.slug}.cklb`;
+          const jsonUrl = `/api/scans/${encodeURIComponent(scanId)}/stig-findings-json?slug=${encodeURIComponent(s.slug)}`;
+          return `
+          ${stigNames.length > 1 ? `<div class="stig-export-group-label" title="${esc(s.stig_name)}">${esc(s.stig_name.slice(0, 40))}</div>` : ""}
+          <a class="stig-export-item" href="${esc(mdUrl)}" download>↓ Markdown (.md)</a>
+          <a class="stig-export-item" href="${esc(cklbUrl)}" download>↓ Checklist (.cklb)</a>
+          <a class="stig-export-item" href="${esc(jsonUrl)}" download>↓ JSON</a>`;
+        }).join("");
       }, renderFilters = function() {
-        const counts2 = countsByStatus();
         return `
-        <div class="stig-filters">
-          <div class="stig-filter-group">
-            <label class="stig-filter-label">Status</label>
-            <div class="stig-filter-btns" id="filter-status">
-              ${["all", ...STATUS_ORDER].map((s) => `
-                <button class="stig-filter-btn${filterStatus === s ? " active" : ""}"
-                  ${act("setStigFilter", "status", `${s}`)}>${s === "all" ? "All" : esc(stigStatusLabel(s))}${s !== "all" && counts2[s] ? ` <span class="stig-filter-count">${counts2[s]}</span>` : ""}</button>
-              `).join("")}
-            </div>
-          </div>
-          <div class="stig-filter-group">
-            <label class="stig-filter-label">Severity</label>
-            <div class="stig-filter-btns">
-              ${["all", "high", "medium", "low"].map((s) => `
-                <button class="stig-filter-btn${filterSeverity === s ? " active" : ""}"
-                  ${act("setStigFilter", "severity", `${s}`)}>${s === "all" ? "All" : ucFirst(s)}</button>
-              `).join("")}
-            </div>
+        <div class="stig-filterbar">
+          <div class="seg-ctrl stig-seg" role="group" aria-label="Filter by severity">
+            ${["all", "high", "medium", "low"].map((s) => `
+              <button type="button" class="seg-btn${filterSeverity === s ? " active" : ""}" data-value="${s}"
+                aria-pressed="${filterSeverity === s}"
+                ${act("setStigFilter", "severity", `${s}`)}>${s === "all" ? "All" : ucFirst(s)}</button>
+            `).join("")}
           </div>
           ${stigNames.length > 1 ? `
-          <div class="stig-filter-group">
-            <label class="stig-filter-label">STIG</label>
-            <div class="stig-filter-btns">
-              <button class="stig-filter-btn${filterStig === "all" ? " active" : ""}"
-                ${act("setStigFilter", "stig", "all")}>All</button>
-              ${data.stigs.map((s) => `
-                <button class="stig-filter-btn${filterStig === s.slug ? " active" : ""}"
-                  ${act("setStigFilter", "stig", s.slug)}
-                  title="${esc(s.stig_name)}">${esc(s.stig_name.slice(0, 30))}…</button>
-              `).join("")}
-            </div>
+          <div class="seg-ctrl stig-seg" role="group" aria-label="Filter by STIG">
+            <button type="button" class="seg-btn${filterStig === "all" ? " active" : ""}" aria-pressed="${filterStig === "all"}"
+              ${act("setStigFilter", "stig", "all")}>All STIGs</button>
+            ${data.stigs.map((s) => `
+              <button type="button" class="seg-btn${filterStig === s.slug ? " active" : ""}" aria-pressed="${filterStig === s.slug}"
+                ${act("setStigFilter", "stig", s.slug)}
+                title="${esc(s.stig_name)}">${esc(s.stig_name.slice(0, 24))}…</button>
+            `).join("")}
           </div>` : ""}
-          <div class="stig-filter-group">
-            <label class="stig-filter-label">Search</label>
-            <input class="stig-search" type="text" placeholder="ID, title, or evidence…"
-              value="${esc(filterText)}"
-              ${actOn("input", "setStigSearch", ARG.value)}>
+          <input class="stig-search" type="text" placeholder="Search ID, title, or evidence…"
+            aria-label="Search controls"
+            value="${esc(filterText)}"
+            ${actOn("input", "setStigSearch", ARG.value)}>
+          <div class="dp-wrap stig-export-wrap">
+            <button type="button" class="dp-trigger${exportOpen ? " open" : ""}" aria-haspopup="dialog" aria-expanded="${exportOpen}"
+              ${act("toggleStigExport")}>Export <span class="dp-caret" aria-hidden="true">▾</span></button>
+            ${exportOpen ? `
+              <div class="dp-backdrop" ${act("closeStigExport")}></div>
+              <div class="dp-popover stig-export-popover" role="dialog" aria-label="Export STIG findings">
+                ${exportLinks()}
+              </div>` : ""}
           </div>
         </div>`;
       }, repaint = function() {
         const el = document.getElementById("stig-viewer-filters");
-        if (el) el.outerHTML = renderFilters().replace('<div class="stig-filters">', '<div class="stig-filters" id="stig-viewer-filters">');
+        if (el) el.innerHTML = renderFilters();
         const tbody = document.getElementById("stig-viewer-body");
         if (tbody) tbody.innerHTML = renderTable();
+        const stats = document.getElementById("stig-viewer-stats");
+        if (stats) stats.innerHTML = renderStats();
       };
       const [scan, data] = await Promise.all([api.getScan(scanId), api.getStigData(scanId)]);
       const STATUS_ORDER = ["Open", "Not a Finding", "Not Applicable", "Not Reviewed"];
@@ -2759,6 +2785,7 @@ epyon install-workflow</pre>
       let filterSeverity = "all";
       let filterStig = "all";
       let filterText = "";
+      let exportOpen = false;
       let sortCol = null;
       let sortDir = "asc";
       const stigNames = [...new Set(data.stigs.map((s) => s.stig_name))];
@@ -2770,6 +2797,14 @@ epyon install-workflow</pre>
       };
       window.setStigSearch = (val) => {
         filterText = val;
+        repaint();
+      };
+      window.toggleStigExport = () => {
+        exportOpen = !exportOpen;
+        repaint();
+      };
+      window.closeStigExport = () => {
+        exportOpen = false;
         repaint();
       };
       window.setStigSort = (col) => {
@@ -2826,7 +2861,6 @@ epyon install-workflow</pre>
         });
         repaint();
       };
-      const counts = countsByStatus();
       const backLink = scan.target ? `<a href="#/scans/${encodeURIComponent(scanId)}" ${act("navigate", `#/scans/${encodeURIComponent(scanId)}`)}>${esc(scanId)}</a>` : esc(scanId);
       page.innerHTML = `
       <div class="breadcrumb">
@@ -2841,38 +2875,13 @@ epyon install-workflow</pre>
         <span>STIG Findings</span>
       </div>
 
-      ${pageHeader(`STIG Findings`, { actions: `${data.stigs.map((s) => {
-        const mdUrl = s.md_url || `/api/scans/${encodeURIComponent(scanId)}/stig-findings/${s.slug}.md`;
-        const cklbUrl = s.cklb_url || `/api/scans/${encodeURIComponent(scanId)}/stig-findings/${s.slug}.cklb`;
-        return `
-              <a class="btn btn-sm" href="${esc(mdUrl)}"   download title="${esc(s.stig_name)}">↓ ${esc(s.slug.slice(0, 20))}.md</a>
-              <a class="btn btn-sm" href="${esc(cklbUrl)}" download title="${esc(s.stig_name)}">↓ ${esc(s.slug.slice(0, 20))}.cklb</a>
-              <a class="btn btn-sm" href="/api/scans/${encodeURIComponent(scanId)}/stig-findings-json?slug=${encodeURIComponent(s.slug)}" download title="${esc(s.stig_name)}">↓ ${esc(s.slug.slice(0, 20))}.json</a>`;
-      }).join("")}` })}
+      ${pageHeader(`STIG Findings`)}
 
-      <div class="stig-totals-bar">
-        <div class="stig-total-chip open">
-          <span class="num">${counts["Open"] || 0}</span><span class="lbl">Open</span>
-        </div>
-        <div class="stig-total-chip pass">
-          <span class="num">${counts["Not a Finding"] || 0}</span><span class="lbl">Not a Finding</span>
-        </div>
-        <div class="stig-total-chip na">
-          <span class="num">${counts["Not Applicable"] || 0}</span><span class="lbl">N/A</span>
-        </div>
-        <div class="stig-total-chip nr">
-          <span class="num">${counts["Not Reviewed"] || 0}</span><span class="lbl">Evidence needed</span>
-        </div>
-        <div class="stig-total-chip total">
-          <span class="num">${allControls.length}</span><span class="lbl">Total</span>
-        </div>
-      </div>
+      <div class="stig-totals-bar" id="stig-viewer-stats">${renderStats()}</div>
 
-      <div id="stig-viewer-filters">${renderFilters().replace('<div class="stig-filters">', "")}</div>
+      <div id="stig-viewer-filters">${renderFilters()}</div>
 
       <div id="stig-viewer-body">${renderTable()}</div>`;
-      const fEl = page.querySelector(".stig-filters");
-      if (fEl) fEl.id = "stig-viewer-filters";
     } catch (e) {
       page.innerHTML = errBanner(e.message);
     }

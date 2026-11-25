@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.86.0] - 2026-11-25
+
+### Added
+- `scan-metadata.json` now records `layers_requested` (the layer numbers actually requested for the scan — the Run Scan page's layer picker selection, or the scan mode's default set from `docs/scanning/SCAN_MATRIX.md`) for web UI-triggered scans (standard, container-image, local-model, and STIG re-run).
+
+### Changed
+- The ML/AI Security card no longer renders at all for scans where none of layers 14/15/18/19/20 were requested (e.g. `quick`/`stig` mode scans), instead of always showing an empty "no ML layers detected" shell. Scans that ran an ML layer still show the card, including a clean "no findings" result. Older scans without `layers_requested` keep the previous always-show behaviour.
+
 ## [3.84.0] - 2026-11-24
 
 ### Added

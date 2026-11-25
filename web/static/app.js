@@ -7303,6 +7303,11 @@ epyon install-workflow</pre>
     const mp = scan.model_provenance;
     const is = scan.inference_security;
     const mr = scan.ml_runtime;
+    const ML_LAYER_NUMS = ["14", "15", "18", "19", "20"];
+    const requested = scan.layers_requested;
+    if (Array.isArray(requested) && !ML_LAYER_NUMS.some((n) => requested.includes(n))) {
+      return "";
+    }
     let pickleSection = "";
     if (ps && Array.isArray(ps)) {
       const findingsCount = ps.length;

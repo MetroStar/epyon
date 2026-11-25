@@ -116,6 +116,51 @@ LAYER_SKIP_ENV: dict[str, str] = {
     "21":   "SKIP_COMPROMISED_SOURCE",
 }
 
+# Default layer set per scan mode, mirroring docs/scanning/SCAN_MATRIX.md.
+# `nightly` and `full` run an identical layer set today; `quick` runs only
+# the fast dependency/secret layers; `stig` runs nothing but Layer 13.
+# Layers 12 (Garak), 13 (STIG) and 20 (ML Runtime) are always opt-in and
+# are added on top of these defaults from their own dedicated flags
+# (run_garak/run_stig/RUN_ML_RUNTIME), never from scan mode alone.
+_QUICK_LAYERS: frozenset[str] = frozenset({"1", "2", "7", "8", "8.5", "8.6", "11.7", "11.8"})
+_NIGHTLY_FULL_EXTRA_LAYERS: frozenset[str] = frozenset(
+    {"3", "4", "5", "6", "9", "10", "11", "14", "15", "16", "18", "19", "21"}
+)
+SCAN_MODE_LAYER_DEFAULTS: dict[str, frozenset[str]] = {
+    "quick":       _QUICK_LAYERS,
+    "nightly":     _QUICK_LAYERS | _NIGHTLY_FULL_EXTRA_LAYERS,
+    "full":        _QUICK_LAYERS | _NIGHTLY_FULL_EXTRA_LAYERS,
+    "stig":        frozenset(),
+    # Local model-weight scans only run picklescan + modelcard (see
+    # scan_type == "local_model" SKIP_* overrides below).
+    "local_model": frozenset({"14", "15"}),
+}
+
+
+def _resolve_layers_requested(
+    scan_type: str,
+    selected_layers: list[str] | None,
+    run_garak: bool,
+    run_stig: bool,
+) -> list[str]:
+    """Derive the set of layer numbers actually requested for this scan,
+    for the web UI's "hide tools that did not run" feature. Uses the
+    explicit Run Scan page layer-picker selection when given, otherwise
+    falls back to the scan mode's default layer set (SCAN_MATRIX.md).
+    Always-opt-in layers (12/Garak, 13/STIG) are added on top when their
+    own flags are set. Returns a sorted list of layer-number strings.
+    """
+    if selected_layers is not None and scan_type not in ("local_model", "stig"):
+        layers = set(selected_layers)
+    else:
+        layers = set(SCAN_MODE_LAYER_DEFAULTS.get(scan_type, SCAN_MODE_LAYER_DEFAULTS["full"]))
+    if run_garak:
+        layers.add("12")
+    if run_stig or scan_type == "stig":
+        layers.add("13")
+    return sorted(layers, key=lambda n: (float(n), n))
+
+
 # Global stores
 jobs:  dict[str, dict[str, Any]] = {}
 procs: dict[str, asyncio.subprocess.Process] = {}
@@ -385,6 +430,9 @@ async def _run_scan_job_inner(
             "resolved_image":   resolved_image,
             "epyon_version":    epyon_version,
             "triggered_by":     "web-ui",
+            # Container-focused layer set only (see SKIP_* below): secrets,
+            # Trivy, Grype, Xeol.
+            "layers_requested": ["2", "7", "8", "9"],
         }
         (scan_dir / "scan-metadata.json").write_text(_json.dumps(scan_meta, indent=2))
 
@@ -656,6 +704,7 @@ async def _run_scan_job_inner(
         "source_url":       target if _is_url else "",
         "epyon_version":    epyon_version,
         "triggered_by":     "web-ui",
+        "layers_requested": _resolve_layers_requested(scan_type, selected_layers, run_garak, run_stig),
     }
     (scan_dir / "scan-metadata.json").write_text(_json.dumps(scan_meta, indent=2))
 
@@ -1076,6 +1125,7 @@ async def _run_stig_rerun_inner(
         "triggered_by": "web-ui",
         "parent_scan_id": parent_dir.name,
         "stig_rerun": {"controls": vuln_ids, "by": requested_by, "at": started},
+        "layers_requested": ["13"],
     }, indent=2))
     job["scan_name"] = scan_name
     _append_line(job, f"[stig-rerun] New scan {scan_name} from {parent_dir.name}: {', '.join(vuln_ids)}")
